@@ -12,8 +12,6 @@
 执行 SQL 并返回结果表格
 
 基于结果生成业务洞察与运营建议
-
-全程流式展示，无需懂 SQL，也无需命令行操作。
 ---
 
 ## 效果
@@ -103,7 +101,7 @@ DB_NAME=taobao_analysis
 HIDDEN_COLUMNS=user_behavior.behavior_count   # 不暴露给模型的列，逗号分隔
 ```
 
-**`.env` 已在 `.gitignore` 中，不会被提交。** 不要把密钥写回代码里。
+**`.env` 已在 `.gitignore` 中，不会被提交。** 
 
 ---
 
@@ -128,15 +126,8 @@ HIDDEN_COLUMNS=user_behavior.behavior_count   # 不暴露给模型的列，逗�
 | GET | `/api/schema` | 返回 Agent 实际看到的表结构文本 |
 | POST | `/api/ask` | 提问，SSE 流式返回 `stage` / `sql` / `result` / `insight` / `error` / `done` |
 
-## 安全说明
+## 网页效果展示图
 
-- 所有 SQL 在执行前都会经过 `guard_sql()`，只允许只读查询，并强制单条语句。
-- 建议给这个应用单独建一个**只读 MySQL 账号**，从数据库层面再兜一层：
+----
 
-  ```sql
-  CREATE USER 'agent_ro'@'localhost' IDENTIFIED BY 'your-password';
-  GRANT SELECT ON taobao_analysis.* TO 'agent_ro'@'localhost';
-  FLUSH PRIVILEGES;
-  ```
-
-  然后把 `.env` 里的 `DB_USER` / `DB_PASSWORD` 换成这个账号。
+![网页界面展示](images/web-agent-效果图.png)
