@@ -1,0 +1,19 @@
+# 环境变量（含API Key，绝不上传）
+.env
+
+# 日志文件
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# 数据文件
+*.csv
+data/
+output/
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>电商数据智能分析 Agent</title>
+<style>
+  :root{
+    --accent:#1b4f7e;
+    --accent-2:#2d7fc1;
+    --accent-soft:#eaf1f8;
+    --bg:#f4f6f9;
+    --card:#ffffff;
+    --line:#e2e8f0;
+    --text:#1a202c;
+    --text-2:#4a5568;
+    --text-3:#8a95a5;
+    --ok:#2f855a;
+    --err:#c53030;
+    --code-bg:#1e2a38;
+    --radius:12px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB",-apple-system,sans-serif;
+    background:var(--bg);color:var(--text);
+    height:100vh;display:flex;flex-direction:column;overflow:hidden;
+  }
+
+  /* ---------- 顶栏 ---------- */
+  header{
+    background:var(--card);border-bottom:1px solid var(--line);
+    padding:12px 22px;display:flex;align-items:center;gap:14px;flex:0 0 auto;
+  }
+  .logo{
+    width:34px;height:34px;border-radius:9px;flex:0 0 auto;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:17px;
+  }
+  .titles h1{font-size:15px;font-weight:700;letter-spacing:.3px;}
+  .titles p{font-size:11.5px;color:var(--text-3);margin-top:1px;}
+  .spacer{flex:1;}
+  .status{
+    display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);
+    background:var(--accent-soft);padding:6px 11px;border-radius:20px;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:#cbd5e0;}
+  .dot.on{background:var(--ok);box-shadow:0 0 0 3px rgba(47,133,90,.15);}
+  .dot.off{background:var(--err);box-shadow:0 0 0 3px rgba(197,48,48,.15);}
+  .ghost-btn{
+    border:1px solid var(--line);background:#fff;color:var(--text-2);
+    font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;
+    font-family:inherit;transition:.15s;
+  }
+  .ghost-btn:hover{border-color:var(--accent-2);color:var(--accent);}
+
+  /* ---------- 消息区 ---------- */
+  main{flex:1;overflow-y:auto;padding:22px 0 8px;scroll-behavior:smooth;}
+  .wrap{max-width:900px;margin:0 auto;padding:0 22px;}
+
+  .welcome{text-align:center;padding:44px 0 26px;}
+  .welcome h2{font-size:19px;font-weight:700;color:var(--accent);letter-spacing:.5px;}
+  .welcome p{font-size:13px;color:var(--text-3);margin-top:8px;line-height:1.7;}
+  .chips{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:22px;}
+  .chip{
+    background:var(--card);border:1px solid var(--line);border-radius:20px;
+    padding:8px 15px;font-size:12.5px;color:var(--text-2);cursor:pointer;transition:.15s;
+  }
+  .chip:hover{border-color:var(--accent-2);color:var(--accent);background:var(--accent-soft);}
+
+  .msg{display:flex;gap:12px;margin-bottom:20px;}
+  .avatar{
+    width:32px;height:32px;border-radius:9px;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;font-size:15px;
+  }
+  .msg.user .avatar{background:var(--accent-soft);color:var(--accent);}
+  .msg.bot .avatar{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;}
+  .bubble{flex:1;min-width:0;}
+  .msg.user .bubble{
+    background:var(--accent);color:#fff;padding:11px 15px;border-radius:var(--radius);
+    border-top-left-radius:4px;font-size:13.5px;line-height:1.65;
+    display:inline-block;max-width:100%;word-break:break-word;
+  }
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;margin-bottom:10px;
+  }
+  .card-head{
+    padding:9px 14px;font-size:12px;font-weight:600;color:var(--text-2);
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;
+    background:#fafbfd;
+  }
+  .card-head .tag{
+    font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:5px;
+    background:var(--accent-soft);color:var(--accent);
+  }
+  .card-head .right{margin-left:auto;display:flex;gap:7px;align-items:center;}
+  .card-body{padding:12px 14px;}
+
+  /* 步骤 */
+  .steps{display:flex;flex-wrap:wrap;gap:7px;}
+  .step{
+    font-size:11.5px;padding:4px 10px;border-radius:14px;
+    background:#f0f3f7;color:var(--text-3);display:flex;align-items:center;gap:6px;
+  }
+  .step.active{background:var(--accent-soft);color:var(--accent);font-weight:600;}
+  .step.done{background:#eaf6ee;color:var(--ok);}
+  .step .sp{
+    width:9px;height:9px;border:1.8px solid currentColor;border-radius:50%;
+    border-top-color:transparent;animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* SQL */
+  pre.sql{
+    background:var(--code-bg);color:#dbe7f3;padding:13px 15px;margin:0;
+    font-family:"Cascadia Code",Consolas,"Courier New",monospace;
+    font-size:12.5px;line-height:1.65;overflow-x:auto;white-space:pre-wrap;
+    word-break:break-word;
+  }
+  pre.sql .kw{color:#7fc4ff;font-weight:600;}
+  pre.sql .fn{color:#f0c674;}
+  pre.sql .str{color:#a5e6a5;}
+  pre.sql .num{color:#f7a6a6;}
+
+  /* 表格 */
+  .table-scroll{max-height:330px;overflow:auto;}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;}
+  th{
+    position:sticky;top:0;background:#f7f9fc;color:var(--text-2);font-weight:600;
+    text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  td{padding:7px 12px;border-bottom:1px solid #f0f3f7;color:var(--text-2);white-space:nowrap;}
+  tbody tr:hover{background:#fafcff;}
+  tbody tr:last-child td{border-bottom:none;}
+  .num-cell{text-align:right;font-variant-numeric:tabular-nums;}
+
+  /* 洞察 */
+  .insight{
+    background:linear-gradient(180deg,#fbfdff,#f5f9fd);
+    border-left:3px solid var(--accent-2);
+    padding:13px 16px;font-size:13.5px;line-height:1.8;color:var(--text-2);
+  }
+  .insight strong{color:var(--accent);}
+  .insight ol{margin:6px 0 0 20px;}
+  .insight li{margin-bottom:4px;}
+
+  .err{
+    background:#fff5f5;border:1px solid #fed7d7;border-left:3px solid var(--err);
+    padding:11px 15px;font-size:13px;color:#9b2c2c;border-radius:8px;line-height:1.6;
+  }
+  .meta{font-size:11.5px;color:var(--text-3);margin-top:4px;}
+
+  .empty{padding:16px;text-align:center;color:var(--text-3);font-size:12.5px;}
+
+  /* ---------- 输入区 ---------- */
+  footer{
+    flex:0 0 auto;background:var(--card);border-top:1px solid var(--line);
+    padding:13px 22px 15px;
+  }
+  .input-row{
+    max-width:900px;margin:0 auto;display:flex;gap:10px;align-items:flex-end;
+    background:var(--bg);border:1.5px solid var(--line);border-radius:14px;
+    padding:9px 10px 9px 15px;transition:.15s;
+  }
+  .input-row:focus-within{border-color:var(--accent-2);background:#fff;
+    box-shadow:0 0 0 3px rgba(45,127,193,.1);}
+  textarea{
+    flex:1;border:none;outline:none;background:transparent;resize:none;
+    font-family:inherit;font-size:13.5px;line-height:1.6;color:var(--text);
+    max-height:130px;min-height:24px;padding:4px 0;
+  }
+  textarea::placeholder{color:#a9b3c1;}
+  button.send{
+    flex:0 0 auto;width:36px;height:36px;border-radius:10px;border:none;cursor:pointer;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;
+    display:flex;align-items:center;justify-content:center;transition:.15s;
+  }
+  button.send:disabled{opacity:.35;cursor:not-allowed;}
+  button.send:not(:disabled):hover{transform:translateY(-1px);}
+  .hint{max-width:900px;margin:7px auto 0;font-size:11px;color:var(--text-3);text-align:center;}
+
+  /* ---------- 弹层 ---------- */
+  .modal{
+    position:fixed;inset:0;background:rgba(26,32,44,.45);display:none;
+    align-items:center;justify-content:center;padding:30px;z-index:50;
+  }
+  .modal.show{display:flex;}
+  .modal-box{
+    background:#fff;border-radius:14px;max-width:660px;width:100%;
+    max-height:78vh;display:flex;flex-direction:column;overflow:hidden;
+  }
+  .modal-box .card-head{background:#fff;padding:14px 18px;font-size:13.5px;color:var(--text);}
+  .modal-box pre{
+    padding:16px 18px;overflow:auto;font-size:12.5px;line-height:1.7;
+    font-family:Consolas,monospace;color:var(--text-2);white-space:pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">◈</div>
+  <div class="titles">
+    <h1>电商数据智能分析 Agent</h1>
+    <p>自然语言问数 · 自动生成 SQL · 输出业务洞察</p>
+  </div>
+  <div class="spacer"></div>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">连接中…</span></div>
+  <button class="ghost-btn" id="schemaBtn">表结构</button>
+</header>
+
+<main id="main">
+  <div class="wrap" id="stream">
+    <div class="welcome" id="welcome">
+      <h2>用一句话问你的数据</h2>
+      <p>直接提问，Agent 会自动生成 SQL、查询数据库，并给出业务解读和运营建议。</p>
+      <div class="chips" id="chips"></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="input-row">
+    <textarea id="input" rows="1" placeholder="例如：帮我找出购买次数前十的用户，并给出运营策略"></textarea>
+    <button class="send" id="send" title="发送（Enter）">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+      </svg>
+    </button>
+  </div>
+  <div class="hint">Enter 发送 · Shift + Enter 换行 · 支持多轮追问</div>
+</footer>
+
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <div class="card-head">Agent 当前看到的表结构<span class="right"><button class="ghost-btn" id="modalClose">关闭</button></span></div>
+    <pre id="schemaText">加载中…</pre>
+  </div>
+</div>
+
+<script>
+const EXAMPLES = [
+  "帮我找出购买次数前十的用户，并给出运营策略",
+  "各行为类型（浏览/收藏/加购/购买）的数量分布",
+  "每天的活跃用户数趋势是怎样的",
+  "浏览到购买的转化率是多少",
+  "哪些商品被加购但没购买最多",
+  "购买次数最多的用户集中在哪几天"
+];
+
+const streamEl = document.getElementById('stream');
+const mainEl = document.getElementById('main');
+const inputEl = document.getElementById('input');
+const sendBtn = document.getElementById('send');
+const welcomeEl = document.getElementById('welcome');
+
+let history = [];
+let busy = false;
+
+/* ---------------- 初始化 ---------------- */
+const chips = document.getElementById('chips');
+EXAMPLES.forEach(t => {
+  const b = document.createElement('button');
+  b.className = 'chip';
+  b.textContent = t;
+  b.onclick = () => { inputEl.value = t; autoGrow(); submit(); };
+  chips.appendChild(b);
+});
+
+/* ---------------- 后端地址解析 ----------------
+   这个页面可能被三种方式打开：
+     1. python app.py 启动后访问 http://127.0.0.1:8000 —— 同源，相对路径直接可用
+     2. IDE / 编辑器的静态预览，或其他静态服务器 —— 只有静态文件，没有后端
+     3. 直接双击 index.html（file://）—— 同样没有后端
+   后两种情况下，同源请求必然 404，这里自动回连到本机的 8000 端口，
+   这样无论从哪里打开页面都能正常工作。
+*/
+let API_BASE = '';
+
+async function resolveBackend() {
+  try {
+    const r = await fetch('/api/health', { cache: 'no-store' });
+    if (r.ok) { API_BASE = ''; return await r.json(); }
+    throw new Error('HTTP ' + r.status);
+  } catch (e) {
+    const fallback = 'http://127.0.0.1:8000';
+    const r = await fetch(fallback + '/api/health', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    API_BASE = fallback;
+    return await r.json();
+  }
+}
+
+resolveBackend().then(d => {
+  const dot = document.getElementById('dot');
+  const txt = document.getElementById('statusText');
+  if (d.database) {
+    dot.className = 'dot on';
+    txt.textContent = `${d.database_name} · ${d.table_count} 张表 · ${d.rows.toLocaleString()} 行`;
+  } else {
+    dot.className = 'dot off';
+    txt.textContent = '数据库未连接';
+    addBot([{ type: 'error', text: '数据库连接失败：' + (d.error || '未知错误') +
+      '\n请确认 MySQL 已启动，并在 web/.env 里填好 DB_USER / DB_PASSWORD / DB_NAME。' }]);
+  }
+  if (!d.api_key) {
+    addBot([{ type: 'error', text: '未检测到 DEEPSEEK_API_KEY。请复制 .env.example 为 .env 并填入你的 Key，然后重启服务。' }]);
+  }
+}).catch(() => {
+  document.getElementById('dot').className = 'dot off';
+  document.getElementById('statusText').textContent = '后端未响应';
+  addBot([{ type: 'error', text:
+    '连不上后端服务。\n\n' +
+    '当前页面是以静态方式打开的（自身没有后端），同时本机 8000 端口也没有服务在运行。\n\n' +
+    '解决办法：先在 web 目录下启动服务\n' +
+    '    python app.py\n' +
+    '然后访问 http://127.0.0.1:8000\n\n' +
+    '注意：不要直接双击 index.html，也不要用编辑器的静态预览打开它——那样只有页面、没有后端。' }]);
+});
+
+/* ---------------- 输入框 ---------------- */
+function autoGrow() {
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 130) + 'px';
+}
+inputEl.addEventListener('input', autoGrow);
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+});
+sendBtn.onclick = submit;
+
+/* ---------------- 发送 ---------------- */
+async function submit() {
+  const q = inputEl.value.trim();
+  if (!q || busy) return;
+  busy = true; sendBtn.disabled = true;
+  inputEl.value = ''; autoGrow();
+  if (welcomeEl) welcomeEl.style.display = 'none';
+
+  addUser(q);
+  const ui = addBotShell();
+  scrollDown();
+
+  try {
+    const res = await fetch(API_BASE + '/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, history })
+    });
+    if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
+
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const p of parts) {
+        const ev = parseEvent(p);
+        if (ev) handle(ev.name, ev.data, ui);
+      }
+    }
+    history.push({ question: q, sql: ui.sql || '' });
+    if (history.length > 6) history = history.slice(-6);
+  } catch (err) {
+    ui.add({ type: 'error', text: '请求失败：' + err.message });
+  } finally {
+    ui.finish();
+    busy = false; sendBtn.disabled = false;
+    inputEl.focus();
+    scrollDown();
+  }
+}
+
+function parseEvent(chunk) {
+  let name = 'message', data = '';
+  for (const line of chunk.split('\n')) {
+    if (line.startsWith('event:')) name = line.slice(6).trim();
+    else if (line.startsWith('data:')) data += line.slice(5).trim();
+  }
+  if (!data) return null;
+  try { return { name, data: JSON.parse(data) }; } catch { return null; }
+}
+
+/* ---------------- 消息渲染 ---------------- */
+function scrollDown() { mainEl.scrollTop = mainEl.scrollHeight; }
+
+function addUser(text) {
+  const el = document.createElement('div');
+  el.className = 'msg user';
+  el.innerHTML = `<div class="avatar">我</div><div class="bubble"></div>`;
+  el.querySelector('.bubble').textContent = text;
+  streamEl.appendChild(el);
+  scrollDown();
+}
+
+function addBot(blocks) { const ui = addBotShell(); blocks.forEach(b => ui.add(b)); ui.finish(); return ui; }
+
+function addBotShell() {
+  const el = document.createElement('div');
+  el.className = 'msg bot';
+  el.innerHTML = `<div class="avatar">◈</div><div class="bubble"></div>`;
+  streamEl.appendChild(el);
+  const bubble = el.querySelector('.bubble');
+
+  const state = { sql: '', started: Date.now() };
+  let stepsBox = null;
+  const stepMap = new Map();
+
+  function steps() {
+    if (!stepsBox) {
+      stepsBox = document.createElement('div');
+      stepsBox.className = 'card';
+      stepsBox.innerHTML = '<div class="card-body"><div class="steps"></div></div>';
+      bubble.appendChild(stepsBox);
+    }
+    return stepsBox.querySelector('.steps');
+  }
+
+  function markStep(stage, text, cls) {
+    const box = steps();
+    let s = stepMap.get(stage);
+    if (!s) {
+      s = document.createElement('div');
+      s.className = 'step';
+      box.appendChild(s);
+      stepMap.set(stage, s);
+    }
+    s.className = 'step ' + (cls || '');
+    s.innerHTML = (cls === 'active' ? '<span class="sp"></span>' : '') + escapeHtml(text);
+  }
+
+  return {
+    get sql() { return state.sql; },
+    add(block) {
+      if (block.type === 'stage') { markStep(block.stage, block.text, 'active'); }
+      else if (block.type === 'sql') {
+        state.sql = block.sql;
+        if (block.blocked) {
+          markStep('sql', 'SQL 被安全护栏拦截', 'done');
+        } else {
+          markStep('sql', 'SQL 已生成', 'done');
+          if (block.adjusted) markStep('query', '已自动补充 LIMIT 保护', 'done');
+        }
+        bubble.appendChild(sqlCard(block.sql, block.attempt, block.adjusted, block.blocked));
+      }
+      else if (block.type === 'result') {
+        markStep('query', `查询完成 · ${block.total.toLocaleString()} 行`, 'done');
+        bubble.appendChild(resultCard(block));
+      }
+      else if (block.type === 'insight') {
+        markStep('insight', '业务洞察已生成', 'done');
+        bubble.appendChild(insightCard(block.text));
+      }
+      else if (block.type === 'error') {
+        stepMap.forEach(s => { if (s.className.includes('active')) s.className = 'step'; });
+        const d = document.createElement('div');
+        d.className = 'err';
+        d.textContent = block.text;
+        bubble.appendChild(d);
+      }
+      scrollDown();
+    },
+    finish() {
+      stepMap.forEach(s => { if (s.className.includes('active')) s.className = 'step done'; });
+      if (!bubble.querySelector('.card, .err')) {
+        const d = document.createElement('div');
+        d.className = 'empty';
+        d.textContent = '没有返回结果';
+        bubble.appendChild(d);
+      }
+    }
+  };
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/* SQL 高亮：单次扫描完成，避免先转义导致字符串字面量匹配不上 */
+const KW = "select|from|where|group\\s+by|order\\s+by|having|limit|as|and|or|not|in|on|join|left|right|inner|outer|distinct|count|sum|avg|max|min|between|like|desc|asc|with|case|when|then|else|end|over|partition\\s+by|is|null";
+const HL_RE = new RegExp(`('(?:[^']|'')*')|(\\b(?:${KW})\\b)|(\\b\\d+(?:\\.\\d+)?\\b)`, 'gi');
+
+function highlight(sql) {
+  // 只转义 & < >，保留单引号——<pre> 里引号无需转义，转义了反而破坏字符串高亮
+  const escaped = String(sql)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return escaped.replace(HL_RE, (m, str, kw, num) => {
+    if (str !== undefined) return `<span class="str">${str}</span>`;
+    if (kw !== undefined) return `<span class="kw">${kw}</span>`;
+    return `<span class="num">${num}</span>`;
+  });
+}
+
+function sqlCard(sql, attempt, adjusted, blocked) {
+  const c = document.createElement('div');
+  c.className = 'card';
+  const tags = [`<span class="tag">SQL</span>`];
+  if (attempt > 1) tags.push(`<span class="tag">第 ${attempt} 次尝试</span>`);
+  if (adjusted) tags.push(`<span class="tag">已加 LIMIT</span>`);
+  if (blocked) tags.push(`<span class="tag" style="background:#fff5f5;color:#c53030">已拦截</span>`);
+  c.innerHTML = `<div class="card-head">${tags.join('')}
+      <span class="right"><button class="ghost-btn copy">复制</button></span>
+    </div><pre class="sql">${highlight(sql)}</pre>`;
+  c.querySelector('.copy').onclick = e => {
+    navigator.clipboard.writeText(sql);
+    e.target.textContent = '已复制';
+    setTimeout(() => e.target.textContent = '复制', 1200);
+  };
+  return c;
+}
+
+function resultCard(block) {
+  const c = document.createElement('div');
+  c.className = 'card';
+  let head = `<div class="card-head"><span class="tag">结果</span>
+      共 ${block.total.toLocaleString()} 行${block.truncated ? `，仅显示前 ${block.rows.length} 行` : ''}
+      <span class="right"><button class="ghost-btn csv">导出 CSV</button></span></div>`;
+
+  if (!block.rows.length) {
+    c.innerHTML = head + '<div class="empty">查询结果为空</div>';
+    return c;
+  }
+
+  // 数字列右对齐；但 ID / 日期这类「标识与时间」列保持左对齐，
+  // 否则表头与数值之间会拉开一大段空白
+  const ID_LIKE = /(^|[^a-z])(id|编号|序号|号|code|编码|日期|时间|date|time)/i;
+  const numeric = block.columns.map((col, i) => {
+    const allNumeric = block.rows.every(r =>
+      r[i] === null || typeof r[i] === 'number' || /^-?\d+(\.\d+)?$/.test(String(r[i])));
+    return allNumeric && !ID_LIKE.test(col);
+  });
+
+  let html = '<div class="table-scroll"><table><thead><tr>';
+  block.columns.forEach((col, i) =>
+    html += `<th${numeric[i] ? ' class="num-cell"' : ''}>${escapeHtml(col)}</th>`);
+  html += '</tr></thead><tbody>';
+  block.rows.forEach(r => {
+    html += '<tr>';
+    r.forEach((v, i) => {
+      const cls = numeric[i] ? ' class="num-cell"' : '';
+      html += `<td${cls}>${v === null ? '<span style="color:#c3cbd6">NULL</span>' : escapeHtml(v)}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  c.innerHTML = head + html;
+
+  c.querySelector('.csv').onclick = e => {
+    const esc = v => {
+      const s = v === null ? '' : String(v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const lines = [block.columns.map(esc).join(',')];
+    block.rows.forEach(r => lines.push(r.map(esc).join(',')));
+    const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'query_result.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    e.target.textContent = '已导出';
+    setTimeout(() => e.target.textContent = '导出 CSV', 1200);
+  };
+  return c;
+}
+
+function insightCard(text) {
+  const c = document.createElement('div');
+  c.className = 'card';
+  c.innerHTML = `<div class="card-head"><span class="tag">业务洞察</span>AI 生成</div>
+    <div class="insight">${renderMd(text)}</div>`;
+  return c;
+}
+
+function renderMd(t) {
+  let s = escapeHtml(t);
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  const lines = s.split('\n');
+  let out = '', inOl = false;
+  for (const line of lines) {
+    const m = line.match(/^\s*(\d+)[.、)]\s*(.+)$/);
+    if (m) {
+      if (!inOl) { out += '<ol>'; inOl = true; }
+      out += `<li>${m[2]}</li>`;
+    } else {
+      if (inOl) { out += '</ol>'; inOl = false; }
+      if (line.trim()) out += `<div>${line}</div>`;
+    }
+  }
+  if (inOl) out += '</ol>';
+  return out;
+}
+
+/* ---------------- 表结构弹层 ---------------- */
+const modal = document.getElementById('modal');
+document.getElementById('modalClose').onclick = () => modal.classList.remove('show');
+modal.onclick = e => { if (e.target === modal) modal.classList.remove('show'); };
+document.getElementById('schemaBtn').onclick = async () => {
+  modal.classList.add('show');
+  const pre = document.getElementById('schemaText');
+  pre.textContent = '加载中…';
+  try {
+    const r = await fetch(API_BASE + '/api/schema').then(r => r.json());
+    pre.textContent = r.ok ? r.schema : ('读取失败：' + r.error);
+  } catch (e) { pre.textContent = '读取失败：' + e.message; }
+};
+
+/* ---------------- SSE 事件分发 ---------------- */
+function handle(name, data, ui) {
+  if (name === 'stage') ui.add({ type: 'stage', stage: data.stage, text: data.text });
+  else if (name === 'sql') ui.add({ type: 'sql', sql: data.sql, attempt: data.attempt, adjusted: data.adjusted, blocked: data.blocked });
+  else if (name === 'result') ui.add({ type: 'result', ...data });
+  else if (name === 'insight') ui.add({ type: 'insight', text: data.text });
+  else if (name === 'error') ui.add({ type: 'error', text: data.text });
+}
+</script>
+</body>
+</html>
