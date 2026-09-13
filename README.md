@@ -1,9 +1,19 @@
 # 电商数据智能分析 Agent · Web 版
 
-把命令行版 `scripts/ai_sql_agent.py` 升级成浏览器交互界面：**在网页里直接用中文提问，Agent 自动生成 SQL、查询数据库，并给出业务洞察和运营建议。**
+### 📌 项目简介
+传统取数流程：业务提需求 → 排期 → 开发写 SQL → 等结果，周期长、沟通成本高。
 
-不需要再开 VSCode、不需要敲 `py ai_sql_agent.py`、不需要一行行读控制台输出。
+本项目实现了一个 NL2SQL 智能问数 Agent，业务人员只需在网页里输入中文问题，系统自动完成：
 
+读取数据库表结构（自动生成提示词）
+
+调用大模型生成 SQL
+
+执行 SQL 并返回结果表格
+
+基于结果生成业务洞察与运营建议
+
+全程流式展示，无需懂 SQL，也无需命令行操作。
 ---
 
 ## 效果
@@ -51,6 +61,18 @@ Agent：
 
 ---
 
+### 🛠️ 技术栈
+后端：FastAPI + SSE + Uvicorn
+
+数据库：MySQL + PyMySQL
+
+大模型：DeepSeek API（兼容 OpenAI SDK）
+
+前端：原生 JavaScript 单文件（无构建步骤）
+
+配置：python-dotenv
+
+---
 ## 快速开始
 
 ```bash
@@ -88,7 +110,7 @@ HIDDEN_COLUMNS=user_behavior.behavior_count   # 不暴露给模型的列，逗�
 ## 目录结构
 
 ```
-web/
+实习项目2/
 ├── app.py              # FastAPI 后端：三步链路 + SQL 护栏 + SSE
 ├── static/
 │   └── index.html      # 单文件前端（原生 JS，无构建步骤）
