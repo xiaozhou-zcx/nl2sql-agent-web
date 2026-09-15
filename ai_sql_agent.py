@@ -1,6 +1,8 @@
 import re
 import pymysql
 from openai import OpenAI
+from dotenv import load_dotenv
+load_dotenv()
 
 # ================= 配置区 =================
 import os
