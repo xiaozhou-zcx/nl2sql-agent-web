@@ -131,3 +131,5 @@ HIDDEN_COLUMNS=user_behavior.behavior_count   # 不暴露给模型的列，逗�
 ----
 
 ![网页界面展示](images/web-agent-效果图.png)
+![基于dify设计的电商分析助手](images/dify设计电商分析demo.png)
+

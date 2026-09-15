@@ -18,7 +18,8 @@
 """
 
 from __future__ import annotations
-
+from dotenv import load_dotenv
+load_dotenv()
 import json
 import os
 import re
@@ -533,6 +534,6 @@ def ask(req: AskRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.getenv("PORT", "8000"))
+    port = int(os.getenv("PORT", "8080"))
     print(f"\n  电商数据智能分析 Agent 已启动 ->  http://127.0.0.1:{port}\n")
     uvicorn.run(app, host="127.0.0.1", port=port)
