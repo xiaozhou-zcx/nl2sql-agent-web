@@ -413,8 +413,4 @@ python eval/run_eval.py --no-insight    # 只测取数链路，不生成洞察�
 
 ---
 
-## 附：改动总览
-
-从命令行脚本到可演示、可度量、可回归的 Web 应用，四个阶段的完整改动清单见
-[CHANGELOG](docs/CHANGELOG.md)（写简历 / 面试可据此复述）。
 
