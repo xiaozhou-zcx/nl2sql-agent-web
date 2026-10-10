@@ -3,6 +3,13 @@
 
 # 日志文件
 *.log
+logs/
+
+# 反馈数据（本地标注，不提交）
+feedback.jsonl
+
+# 运营动作记录（本地数据，不提交）
+user_tags.jsonl
 
 # Python
 __pycache__/
@@ -17,3 +24,9 @@ output/
 # IDE
 .vscode/
 .idea/
+
+# 本地 AI 助手的工作目录，不提交
+.workbuddy-ai/
+
+# 测试缓存
+.pytest_cache/

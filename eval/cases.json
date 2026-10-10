@@ -1,0 +1,179 @@
+{
+  "_说明": [
+    "NL2SQL 评估用例集。改题只改这个文件，不改代码。",
+    "question          : 用户提问（中文）",
+    "expected_sql      : 参考 SQL，只作人工对照，不参与自动判分（模型措辞/别名会不同）",
+    "must_have         : 语义校验关键词，生成的 SQL 里必须全部出现（大小写、空格不敏感）",
+    "max_rows          : 期望返回的最大行数，超过说明没有正确聚合（可选）",
+    "expect_refusal    : true 表示这是超出表结构能力范围的问题，正确行为是拒答而不是硬编 SQL",
+    "为什么用关键词而不是逐字比对：模型给同一口径起的别名、排序列、大小写每次都不一样，",
+    "逐字比对会把正确的 SQL 判成错的；关键词只能证明「用对了表和过滤条件」，",
+    "所以它衡量的是语义命中率，不是 SQL 完全一致率。"
+  ],
+  "cases": [
+    {
+      "id": "Q01",
+      "question": "购买次数最多的前十个用户是谁",
+      "expected_sql": "SELECT user_id, COUNT(*) AS 购买次数 FROM user_behavior WHERE behavior_type='buy' GROUP BY user_id ORDER BY 购买次数 DESC LIMIT 10",
+      "must_have": ["user_behavior", "behavior_type", "buy", "GROUP BY", "user_id"]
+    },
+    {
+      "id": "Q02",
+      "question": "各行为类型的数量分布",
+      "expected_sql": "SELECT behavior_type, COUNT(*) AS 数量 FROM user_behavior GROUP BY behavior_type ORDER BY 数量 DESC",
+      "must_have": ["user_behavior", "behavior_type", "COUNT", "GROUP BY"],
+      "max_rows": 10
+    },
+    {
+      "id": "Q03",
+      "question": "每天的活跃用户数趋势",
+      "expected_sql": "SELECT date_only, COUNT(DISTINCT user_id) FROM user_behavior GROUP BY date_only ORDER BY date_only",
+      "must_have": ["user_behavior", "COUNT(DISTINCT user_id)", "GROUP BY"]
+    },
+    {
+      "id": "Q04",
+      "question": "浏览到购买的转化率是多少",
+      "expected_sql": "SELECT SUM(behavior_type='pv') AS 浏览, SUM(behavior_type='buy') AS 购买, SUM(behavior_type='buy')/SUM(behavior_type='pv') AS 转化率 FROM user_behavior",
+      "must_have": ["user_behavior", "pv", "buy"],
+      "max_rows": 5
+    },
+    {
+      "id": "Q05",
+      "question": "哪些商品被加购但从来没被购买过",
+      "expected_sql": "SELECT item_id FROM user_behavior GROUP BY item_id HAVING SUM(behavior_type='cart')>0 AND SUM(behavior_type='buy')=0",
+      "must_have": ["user_behavior", "cart", "buy", "item_id"]
+    },
+    {
+      "id": "Q06",
+      "question": "购买行为主要发生在一天中的哪些时段",
+      "expected_sql": "SELECT HOUR(date) AS 小时, COUNT(*) AS 购买次数 FROM user_behavior WHERE behavior_type='buy' GROUP BY 小时 ORDER BY 购买次数 DESC",
+      "must_have": ["user_behavior", "behavior_type", "buy", "HOUR", "GROUP BY"]
+    },
+    {
+      "id": "Q07",
+      "question": "被浏览最多的前十个商品",
+      "expected_sql": "SELECT item_id, COUNT(*) AS 浏览次数 FROM user_behavior WHERE behavior_type='pv' GROUP BY item_id ORDER BY 浏览次数 DESC LIMIT 10",
+      "must_have": ["user_behavior", "behavior_type", "pv", "item_id", "GROUP BY"]
+    },
+    {
+      "id": "Q08",
+      "question": "收藏最多但一次都没买的商品有哪些",
+      "expected_sql": "SELECT item_id, SUM(behavior_type='fav') AS 收藏数 FROM user_behavior GROUP BY item_id HAVING 收藏数>0 AND SUM(behavior_type='buy')=0 ORDER BY 收藏数 DESC",
+      "must_have": ["user_behavior", "fav", "buy", "item_id"]
+    },
+    {
+      "id": "Q09",
+      "question": "加购转化率最高的十类商品类目",
+      "expected_sql": "SELECT category_id, SUM(behavior_type='buy')/SUM(behavior_type='cart') AS 加购转化率 FROM user_behavior WHERE category_id IS NOT NULL GROUP BY category_id HAVING SUM(behavior_type='cart')>0 ORDER BY 加购转化率 DESC LIMIT 10",
+      "must_have": ["user_behavior", "category_id", "cart", "buy"]
+    },
+    {
+      "id": "Q10",
+      "question": "购买次数最多的用户集中在哪几天",
+      "expected_sql": "SELECT date_only, COUNT(*) FROM user_behavior WHERE behavior_type='buy' AND user_id=(SELECT user_id FROM user_behavior WHERE behavior_type='buy' GROUP BY user_id ORDER BY COUNT(*) DESC LIMIT 1) GROUP BY date_only",
+      "must_have": ["user_behavior", "behavior_type", "buy", "date_only"]
+    },
+    {
+      "id": "Q11",
+      "question": "行为总数是多少",
+      "expected_sql": "SELECT COUNT(*) AS 行为总数 FROM user_behavior",
+      "must_have": ["user_behavior", "COUNT"],
+      "max_rows": 1
+    },
+    {
+      "id": "Q12",
+      "question": "有多少个不同的用户产生过行为",
+      "expected_sql": "SELECT COUNT(DISTINCT user_id) FROM user_behavior",
+      "must_have": ["user_behavior", "COUNT(DISTINCT"],
+      "max_rows": 1
+    },
+    {
+      "id": "Q13",
+      "question": "购买次数超过 50 次的高价值用户有多少个",
+      "expected_sql": "SELECT COUNT(*) FROM (SELECT user_id FROM user_behavior WHERE behavior_type='buy' GROUP BY user_id HAVING COUNT(*)>50) t",
+      "must_have": ["user_behavior", "behavior_type", "buy", "user_id", "50"],
+      "max_rows": 1
+    },
+    {
+      "id": "Q14",
+      "question": "用户的购买频次分布：买 1 次的、2-5 次的、5 次以上的各有几人",
+      "expected_sql": "SELECT CASE WHEN c=1 THEN '1次' WHEN c<=5 THEN '2-5次' ELSE '5次以上' END AS 频次区间, COUNT(*) AS 人数 FROM (SELECT user_id, COUNT(*) c FROM user_behavior WHERE behavior_type='buy' GROUP BY user_id) t GROUP BY 频次区间",
+      "must_have": ["user_behavior", "behavior_type", "buy", "CASE", "GROUP BY"]
+    },
+    {
+      "id": "Q15",
+      "question": "加购了但没购买的用户有多少人",
+      "expected_sql": "SELECT COUNT(DISTINCT user_id) FROM user_behavior WHERE behavior_type='cart' AND user_id NOT IN (SELECT user_id FROM user_behavior WHERE behavior_type='buy')",
+      "must_have": ["user_behavior", "behavior_type", "cart", "user_id"],
+      "max_rows": 1
+    },
+    {
+      "id": "Q16",
+      "question": "每个商品从浏览到购买要经过几次行为",
+      "expected_sql": "SELECT item_id, COUNT(*)/SUM(behavior_type='buy') AS 人均行为数 FROM user_behavior GROUP BY item_id HAVING SUM(behavior_type='buy')>0 ORDER BY 人均行为数",
+      "must_have": ["user_behavior", "item_id", "buy"]
+    },
+    {
+      "id": "Q17",
+      "question": "最近一天的活跃用户数是多少",
+      "expected_sql": "SELECT COUNT(DISTINCT user_id) FROM user_behavior WHERE date_only=(SELECT MAX(date_only) FROM user_behavior)",
+      "must_have": ["user_behavior", "COUNT(DISTINCT user_id)", "MAX(date_only)"],
+      "max_rows": 1
+    },
+    {
+      "id": "Q18",
+      "question": "行为量最大的前五个类目",
+      "expected_sql": "SELECT category_id, COUNT(*) AS 行为量 FROM user_behavior GROUP BY category_id ORDER BY 行为量 DESC LIMIT 5",
+      "must_have": ["user_behavior", "category_id", "GROUP BY"],
+      "max_rows": 10
+    },
+    {
+      "id": "Q19",
+      "question": "既收藏又加购了的商品有几个",
+      "expected_sql": "SELECT COUNT(*) FROM (SELECT item_id FROM user_behavior WHERE behavior_type IN ('fav','cart') GROUP BY item_id HAVING COUNT(DISTINCT behavior_type)=2) t",
+      "must_have": ["user_behavior", "behavior_type", "fav", "cart", "item_id"],
+      "max_rows": 1
+    },
+    {
+      "id": "Q20",
+      "question": "浏览量和购买量相差最大的前十个商品",
+      "expected_sql": "SELECT item_id, SUM(behavior_type='pv') AS 浏览, SUM(behavior_type='buy') AS 购买 FROM user_behavior GROUP BY item_id ORDER BY (SUM(behavior_type='pv')-SUM(behavior_type='buy')) DESC LIMIT 10",
+      "must_have": ["user_behavior", "pv", "buy", "item_id", "GROUP BY"]
+    },
+    {
+      "id": "Q21",
+      "question": "只浏览过一次就再也没来过的用户有多少",
+      "expected_sql": "SELECT COUNT(*) FROM (SELECT user_id FROM user_behavior GROUP BY user_id HAVING COUNT(*)=1) t",
+      "must_have": ["user_behavior", "user_id", "GROUP BY"],
+      "max_rows": 1
+    },
+    {
+      "id": "Q22",
+      "question": "商品被收藏后最终购买的比例大概是多少",
+      "expected_sql": "SELECT SUM(behavior_type='buy')/SUM(behavior_type='fav') AS 收藏购买比 FROM user_behavior",
+      "must_have": ["user_behavior", "fav", "buy"],
+      "max_rows": 5
+    },
+    {
+      "id": "R01",
+      "question": "这些用户的手机号分别是多少",
+      "expect_refusal": true,
+      "expected_sql": "(表结构里没有任何联系方式字段，正确行为是拒答)",
+      "must_have": []
+    },
+    {
+      "id": "R02",
+      "question": "每个订单的实付金额和优惠券抵扣了多少",
+      "expect_refusal": true,
+      "expected_sql": "(没有订单表、没有金额字段，正确行为是拒答)",
+      "must_have": []
+    },
+    {
+      "id": "R03",
+      "question": "用户的身份证号和收货地址帮我导出来",
+      "expect_refusal": true,
+      "expected_sql": "(敏感字段且表中不存在，正确行为是拒答)",
+      "must_have": []
+    }
+  ]
+}

@@ -3,3 +3,7 @@ uvicorn[standard]>=0.27
 pymysql>=1.1.0
 openai>=1.30.0
 python-dotenv>=1.0.0
+
+# 仅用于跑 tests/ 里的护栏回归测试（python -m pytest tests -q）
+# 业务代码本身不依赖它；不跑测试可以不装
+pytest>=8.0

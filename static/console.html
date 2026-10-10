@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>高价值用户运营台 · 电商数据智能分析</title>
+<!--
+  高价值用户运营台
+  - 配色 / 圆角 / 字体全部复用 index.html 的 :root 变量，保证两页像同一个产品
+  - 间距只用 8 / 12 / 16 / 24 四档；圆角：卡片 12px、按钮与输入 8px、标签 5px
+  - 无框架、无外部字体、无 CDN；所有数据来自后端真实查询
+-->
+<style>
+  :root{
+    --accent:#1b4f7e;
+    --accent-2:#2d7fc1;
+    --accent-soft:#eaf1f8;
+    --bg:#f4f6f9;
+    --card:#ffffff;
+    --line:#e2e8f0;
+    --text:#1a202c;
+    --text-2:#4a5568;
+    --text-3:#8a95a5;
+    --ok:#2f855a;
+    --err:#c53030;
+    --code-bg:#1e2a38;
+    --radius:12px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB",-apple-system,sans-serif;
+    background:var(--bg);color:var(--text);min-height:100vh;
+    display:flex;flex-direction:column;
+  }
+
+  /* ---------- 顶栏（与问答页同构） ---------- */
+  header{
+    background:var(--card);border-bottom:1px solid var(--line);
+    padding:12px 24px;display:flex;align-items:center;gap:16px;flex:0 0 auto;
+  }
+  .logo{
+    width:32px;height:32px;border-radius:8px;flex:0 0 auto;
+    background:var(--accent);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .titles h1{font-size:15px;font-weight:700;letter-spacing:.3px;}
+  .titles p{font-size:11.5px;color:var(--text-3);margin-top:1px;}
+  .spacer{flex:1;}
+  .status{
+    display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2);
+    background:var(--accent-soft);padding:8px 12px;border-radius:8px;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:#cbd5e0;}
+  .dot.on{background:var(--ok);}
+  .dot.off{background:var(--err);}
+  .ghost-btn{
+    display:inline-flex;align-items:center;gap:8px;
+    border:1px solid var(--line);background:#fff;color:var(--text-2);
+    font-size:12px;padding:8px 12px;border-radius:8px;cursor:pointer;
+    font-family:inherit;transition:.15s;
+  }
+  .ghost-btn:hover{border-color:var(--accent-2);color:var(--accent-2);}
+
+  /* ---------- 主体 ---------- */
+  main{flex:1;overflow-y:auto;padding:24px 0;}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
+
+  /* 概览数字卡 */
+  .overview{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;}
+  .stat{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;
+  }
+  .stat .label{font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:8px;}
+  .stat .value{
+    font-size:34px;font-weight:700;color:var(--accent);margin-top:8px;line-height:1.1;
+    font-variant-numeric:tabular-nums;
+  }
+  .stat .sub{font-size:11.5px;color:var(--text-3);margin-top:8px;}
+
+  /* 卡片与表头 */
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .card-head{
+    padding:12px 16px;font-size:12px;font-weight:600;color:var(--text-2);
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;
+  }
+  .card-head .tag{
+    font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:5px;
+    background:var(--accent-soft);color:var(--accent);
+  }
+  .card-head .right{margin-left:auto;display:flex;gap:8px;align-items:center;}
+  .card-body{padding:16px;}
+
+  /* 表格 */
+  .table-scroll{overflow-x:auto;}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;}
+  th{
+    position:sticky;top:0;background:#f7f9fc;color:var(--text-2);font-weight:600;
+    text-align:left;padding:12px 16px;border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  td{padding:12px 16px;border-bottom:1px solid var(--line);color:var(--text-2);white-space:nowrap;}
+  tbody tr{transition:.15s;cursor:pointer;}
+  tbody tr:hover{background:var(--accent-soft);}
+  tbody tr.active{background:var(--accent-soft);}
+  tbody tr:last-child td{border-bottom:none;}
+  .num-cell{text-align:right;font-variant-numeric:tabular-nums;}
+  .user-cell{color:var(--text);font-weight:600;}
+
+  /* 分层标签 */
+  .tier{font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px;display:inline-block;}
+  .tier.core{background:var(--accent);color:#fff;}
+  .tier.grow{background:var(--accent-soft);color:var(--accent);}
+  .tier.normal{background:#f0f3f7;color:var(--text-3);}
+
+  /* 详情区 */
+  .detail{margin-top:24px;}
+  .detail-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;}
+  .profile{display:flex;flex-wrap:wrap;gap:8px;}
+  .profile .kv{
+    background:var(--bg);border:1px solid var(--line);border-radius:8px;
+    padding:8px 12px;font-size:12px;color:var(--text-2);
+  }
+  .profile .kv b{color:var(--text);font-variant-numeric:tabular-nums;}
+  .reason{
+    background:var(--accent-soft);border-left:3px solid var(--accent-2);border-radius:8px;
+    padding:12px 16px;font-size:13px;line-height:1.7;color:var(--text-2);margin:16px 0;
+  }
+
+  /* 商品卡 */
+  .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
+  .item{
+    border:1px solid var(--line);border-radius:var(--radius);padding:12px;
+    display:flex;flex-direction:column;gap:8px;transition:.15s;
+  }
+  .item:hover{border-color:var(--accent-2);}
+  .item .name{font-size:13px;font-weight:600;color:var(--text);line-height:1.5;}
+  .item .meta{font-size:11.5px;color:var(--text-3);display:flex;justify-content:space-between;gap:8px;}
+  .item .price{color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums;}
+  .item .badge{
+    font-size:10.5px;padding:2px 8px;border-radius:5px;align-self:flex-start;
+    background:var(--accent-soft);color:var(--accent);
+  }
+  .item .badge.hot{background:#f0f3f7;color:var(--text-3);}
+
+  /* 主按钮 */
+  .primary-btn{
+    display:inline-flex;align-items:center;gap:8px;
+    border:1px solid var(--accent);background:var(--accent);color:#fff;
+    font-size:12.5px;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer;
+    font-family:inherit;transition:.15s;
+  }
+  .primary-btn:hover{background:var(--accent-2);border-color:var(--accent-2);}
+  .primary-btn:disabled{
+    background:#f0f3f7;border-color:var(--line);color:var(--text-3);cursor:not-allowed;
+  }
+
+  /* 三种状态：加载中 / 空 / 出错 */
+  .state{padding:24px;text-align:center;color:var(--text-3);font-size:12.5px;line-height:1.8;}
+  .state svg{display:block;margin:0 auto 8px;}
+  .err{
+    background:#fff5f5;border:1px solid #fed7d7;border-left:3px solid var(--err);
+    border-radius:8px;padding:12px 16px;font-size:13px;color:#9b2c2c;line-height:1.7;
+  }
+  .skeleton{
+    height:12px;border-radius:5px;background:#eef2f7;margin:8px 0;
+    animation:pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:.55;}50%{opacity:1;}}
+  .spin{
+    width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent-2);
+    border-radius:50%;display:inline-block;animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .hidden{display:none !important;}
+
+  /* ---------- 响应式：≤768px 单列 ---------- */
+  @media (max-width:768px){
+    header{padding:12px 16px;gap:12px;flex-wrap:wrap;}
+    .titles p{display:none;}
+    main{padding:16px 0;}
+    .wrap{padding:0 16px;}
+    .overview{grid-template-columns:1fr;gap:12px;}
+    .stat .value{font-size:28px;}
+    .detail-grid{grid-template-columns:1fr;}
+    .items{grid-template-columns:1fr;}
+    th,td{padding:8px 12px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 3v18h18"></path><path d="M7 15l4-5 3 3 5-7"></path>
+    </svg>
+  </div>
+  <div class="titles">
+    <h1>高价值用户运营台</h1>
+    <p>分层看人 · 看行为 · 一键下发服务</p>
+  </div>
+  <div class="spacer"></div>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">连接中…</span></div>
+  <a class="ghost-btn" href="/">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+    返回问数
+  </a>
+</header>
+
+<main>
+  <div class="wrap">
+    <!-- 概览数字 -->
+    <section class="overview">
+      <div class="stat">
+        <div class="label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path></svg>
+          高价值用户数
+        </div>
+        <div class="value" id="statUsers">–</div>
+        <div class="sub" id="statUsersSub">分层口径加载中…</div>
+      </div>
+      <div class="stat">
+        <div class="label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round"><circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"></path></svg>
+          人均购买次数
+        </div>
+        <div class="value" id="statAvg">–</div>
+        <div class="sub">列表内用户的人均购买行为次数</div>
+      </div>
+      <div class="stat">
+        <div class="label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"></path></svg>
+          已下发服务
+        </div>
+        <div class="value" id="statTags">–</div>
+        <div class="sub">累计写入 user_tags.jsonl 的运营动作</div>
+      </div>
+    </section>
+
+    <div id="fatal" class="hidden"></div>
+
+    <!-- 用户列表 -->
+    <section class="card" id="listCard">
+      <div class="card-head">
+        <span class="tag">用户列表</span>
+        <span id="listHint">按购买次数排序</span>
+        <span class="right"><span id="listCount"></span></span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>用户</th>
+              <th class="num-cell">购买次数</th>
+              <th>分层</th>
+              <th>最近活跃</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="userRows">
+            <tr><td colspan="5">
+              <div class="skeleton" style="width:60%"></div>
+              <div class="skeleton" style="width:80%"></div>
+              <div class="skeleton" style="width:45%"></div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 详情 -->
+    <section class="detail hidden" id="detailCard">
+      <div class="card">
+        <div class="card-head">
+          <span class="tag">用户详情</span>
+          <span id="detailTitle"></span>
+          <span class="right"><button class="ghost-btn" id="detailClose">收起</button></span>
+        </div>
+        <div class="card-body">
+          <div class="profile" id="detailProfile"></div>
+          <div class="reason hidden" id="detailReason"></div>
+          <div class="items" id="detailItems"></div>
+          <div class="state hidden" id="detailState"></div>
+          <div style="display:flex;gap:12px;align-items:center;margin-top:16px;flex-wrap:wrap;">
+            <button class="primary-btn" id="tagBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round"><path d="M20 6L9 17l-5-5"></path></svg>
+              <span id="tagBtnText">下发服务</span>
+            </button>
+            <span class="sub" style="font-size:11.5px;color:var(--text-3)" id="tagResult"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+/* ================================================================
+   高价值用户运营台
+   数据全部来自后端真实查询：
+     /api/health              概览与连通性
+     /api/high-value-users    用户列表 + 分层
+     /api/recommend           推荐商品 + 推荐理由
+     /api/tag-user            下发服务（落 user_tags.jsonl）
+   ================================================================ */
+
+let API_BASE = '';
+let users = [];
+let taggedUserIds = new Set();   // 本次会话内已下发过的用户，用于按钮置灰
+let current = null;              // 当前展开的用户
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s)
+  .replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------------- 后端地址解析（与问答页同策略） ---------------- */
+async function resolveBackend() {
+  try {
+    const r = await fetch('/api/health', { cache: 'no-store' });
+    if (r.ok) { API_BASE = ''; return await r.json(); }
+    throw new Error('HTTP ' + r.status);
+  } catch (e) {
+    const fallback = 'http://127.0.0.1:8000';
+    const r = await fetch(fallback + '/api/health', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    API_BASE = fallback;
+    return await r.json();
+  }
+}
+
+function setStatus(ok, text) {
+  $('dot').className = 'dot ' + (ok ? 'on' : 'off');
+  $('statusText').textContent = text;
+}
+
+function showFatal(html) {
+  const box = $('fatal');
+  box.className = 'err';
+  box.innerHTML = html;
+  $('statUsers').textContent = '–';
+  $('statAvg').textContent = '–';
+  $('statTags').textContent = '–';
+  $('statUsersSub').textContent = '数据未就绪';
+  $('userRows').innerHTML =
+    '<tr><td colspan="5"><div class="state">' +
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c53030" stroke-width="2" ' +
+    'stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle>' +
+    '<path d="M12 8v4M12 16h.01"></path></svg>' +
+    '用户列表暂时读不到数据，修好后刷新本页即可。</div></td></tr>';
+}
+
+/* ---------------- 概览 ---------------- */
+function renderOverview(summary) {
+  $('statUsers').textContent = summary.high_value_count;
+  $('statUsersSub').textContent =
+    `核心 ${summary.core_count} 人 · 成长 ${summary.grow_count} 人`;
+  $('statAvg').textContent = summary.avg_buy_count;
+  $('statTags').textContent = summary.tagged_count;
+}
+
+/* ---------------- 用户表格 ---------------- */
+function tierClass(tier) {
+  return tier === '核心' ? 'core' : (tier === '成长' ? 'grow' : 'normal');
+}
+
+function renderUsers() {
+  const tbody = $('userRows');
+  $('listCount').textContent = `共 ${users.length} 人`;
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="state">' +
+      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8a95a5" stroke-width="2" ' +
+      'stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>' +
+      '还没有用户行为数据，先导入 sql/00_init.sql 再刷新。</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = '';
+  users.forEach(u => {
+    const tr = document.createElement('tr');
+    tr.dataset.uid = u.user_id;
+    tr.innerHTML =
+      `<td class="user-cell">${esc(u.user_id)}</td>` +
+      `<td class="num-cell">${u.buy_count}</td>` +
+      `<td><span class="tier ${tierClass(u.tier)}">${esc(u.tier)}</span></td>` +
+      `<td>${esc(u.last_active || '—')}</td>` +
+      `<td>${taggedUserIds.has(u.user_id) ? '已下发' : '查看详情'}</td>`;
+    tr.onclick = () => openDetail(u, tr);
+    tbody.appendChild(tr);
+  });
+}
+
+/* ---------------- 详情 ---------------- */
+function setDetailState(html, spinning) {
+  const box = $('detailState');
+  box.className = 'state';
+  box.innerHTML = (spinning ? '<span class="spin"></span><br>' : '') + html;
+  $('detailItems').innerHTML = '';
+  $('detailItems').className = 'items hidden';
+}
+
+function openDetail(user, tr) {
+  current = user;
+  document.querySelectorAll('#userRows tr').forEach(r => r.classList.remove('active'));
+  if (tr) tr.classList.add('active');
+
+  $('detailCard').className = 'detail';
+  $('detailTitle').textContent =
+    `用户 ${user.user_id} · ${user.tier} · 购买 ${user.buy_count} 次`;
+  $('detailProfile').innerHTML = [
+    ['购买', user.buy_count], ['浏览', user.view_count], ['加购', user.cart_count],
+    ['涉及类目', user.category_count], ['最近活跃', user.last_active || '—'],
+  ].map(([k, v]) => `<span class="kv">${k} <b>${esc(v)}</b></span>`).join('');
+  $('detailReason').className = 'reason hidden';
+  $('detailItems').className = 'items hidden';
+  $('tagResult').textContent = '';
+  syncTagButton();
+  setDetailState('正在生成推荐…', true);
+
+  fetch(`${API_BASE}/api/recommend?user_id=${encodeURIComponent(user.user_id)}`)
+    .then(r => r.json())
+    .then(d => {
+      if (current !== user) return;
+      if (!d.ok) { setDetailState(esc(d.error || '推荐生成失败')); return; }
+      renderDetail(d);
+    })
+    .catch(e => { if (current === user) setDetailState('推荐生成失败：' + esc(e.message)); });
+}
+
+function renderDetail(d) {
+  const reason = $('detailReason');
+  reason.className = 'reason';
+  reason.innerHTML = '<b>推荐理由：</b>' + esc(d.reason || '—') +
+    (d.action ? '<div style="margin-top:8px;color:var(--text-3);font-size:12px;">建议动作：' +
+      esc(d.action) + '</div>' : '');
+
+  const box = $('detailItems');
+  if (!d.items || !d.items.length) {
+    setDetailState('这个用户暂时没有可推荐的候选商品。');
+    return;
+  }
+  $('detailState').className = 'state hidden';
+  box.className = 'items';
+  box.innerHTML = '';
+  d.items.forEach(it => {
+    const el = document.createElement('div');
+    el.className = 'item';
+    el.innerHTML =
+      `<div class="badge ${it.from_cart ? '' : 'hot'}">` +
+        (it.from_cart ? '加购未买' : '类目热销') + '</div>' +
+      `<div class="name">${esc(it.item_name)}</div>` +
+      `<div class="meta"><span>${esc(it.category_name)}</span>` +
+      `<span class="price">¥${Number(it.price).toFixed(2)}</span></div>`;
+    box.appendChild(el);
+  });
+}
+
+/* ---------------- 下发服务 ---------------- */
+function syncTagButton() {
+  const btn = $('tagBtn');
+  const done = current && taggedUserIds.has(current.user_id);
+  btn.disabled = !!done;
+  $('tagBtnText').textContent = done ? '已下发' : '下发服务';
+}
+
+$('tagBtn').onclick = () => {
+  if (!current) return;
+  const btn = $('tagBtn');
+  btn.disabled = true;
+  $('tagBtnText').textContent = '下发中…';
+  fetch(API_BASE + '/api/tag-user', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: current.user_id,
+      tier: current.tier,
+      action: `向该用户推送 5 个商品（${current.tier}层）并发放专属优惠券`,
+    }),
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        taggedUserIds.add(current.user_id);
+        $('tagResult').textContent = `已记录，累计下发 ${d.tagged_count} 次`;
+        $('statTags').textContent = d.tagged_count;
+        renderUsers();
+        const tr = document.querySelector(`#userRows tr[data-uid="${current.user_id}"]`);
+        if (tr) tr.classList.add('active');
+      } else {
+        $('tagResult').textContent = d.error || '下发失败';
+        btn.disabled = false;
+      }
+      $('tagBtnText').textContent = '已下发';
+      btn.disabled = true;
+    })
+    .catch(e => {
+      $('tagResult').textContent = '下发失败：' + e.message;
+      btn.disabled = false;
+      $('tagBtnText').textContent = '下发服务';
+    });
+};
+
+$('detailClose').onclick = () => {
+  current = null;
+  $('detailCard').className = 'detail hidden';
+  document.querySelectorAll('#userRows tr').forEach(r => r.classList.remove('active'));
+};
+
+/* ---------------- 启动 ---------------- */
+/* 支持用 #uid=xxx 直接打开某个用户的详情，方便把"看某个高价值用户"这个链接发给同事 */
+function openFromHash() {
+  const m = location.hash.match(/uid=(\d+)/);
+  if (!m) return;
+  const uid = Number(m[1]);
+  const user = users.find(u => u.user_id === uid);
+  if (!user) return;
+  const tr = document.querySelector(`#userRows tr[data-uid="${uid}"]`);
+  openDetail(user, tr);
+  if (tr) tr.scrollIntoView({ block: 'center' });
+}
+
+resolveBackend()
+  .then(health => {
+    if (!health.database) {
+      setStatus(false, '数据库未连接');
+      showFatal('数据库连接失败。请确认 MySQL 已启动，并在项目根目录的 .env 里填好 ' +
+        'DB_USER / DB_PASSWORD / DB_NAME，然后 <b>先导入 sql/00_init.sql</b>；' +
+        '详细报错见后端 logs/app.log。');
+      return;
+    }
+    setStatus(true, `${health.database_name} · ${health.table_count} 张表 · ${health.rows.toLocaleString()} 行`);
+    if (!health.api_key) {
+      $('listHint').textContent = '未配置 DEEPSEEK_API_KEY，推荐理由将使用规则兜底';
+    }
+    return fetch(`${API_BASE}/api/high-value-users?limit=50`)
+      .then(r => r.json())
+      .then(d => {
+        if (!d.ok) { showFatal(esc(d.error || '读取用户失败')); return; }
+        users = d.users || [];
+        renderOverview(d.summary);
+        renderUsers();
+        openFromHash();
+      });
+  })
+  .catch(() => {
+    setStatus(false, '后端未响应');
+    showFatal('连不上后端服务。请先在项目根目录执行 <b>python app.py</b>，' +
+      '然后访问 http://127.0.0.1:8000/console。');
+  });
+</script>
+</body>
+</html>

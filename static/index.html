@@ -30,11 +30,11 @@
   /* ---------- 顶栏 ---------- */
   header{
     background:var(--card);border-bottom:1px solid var(--line);
-    padding:12px 22px;display:flex;align-items:center;gap:14px;flex:0 0 auto;
+    padding:12px 24px;display:flex;align-items:center;gap:16px;flex:0 0 auto;
   }
   .logo{
-    width:34px;height:34px;border-radius:9px;flex:0 0 auto;
-    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    width:32px;height:32px;border-radius:8px;flex:0 0 auto;
+    background:var(--accent);
     display:flex;align-items:center;justify-content:center;
     color:#fff;font-size:17px;
   }
@@ -42,67 +42,99 @@
   .titles p{font-size:11.5px;color:var(--text-3);margin-top:1px;}
   .spacer{flex:1;}
   .status{
-    display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);
-    background:var(--accent-soft);padding:6px 11px;border-radius:20px;
+    display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2);
+    background:var(--accent-soft);padding:8px 12px;border-radius:8px;
   }
   .dot{width:7px;height:7px;border-radius:50%;background:#cbd5e0;}
   .dot.on{background:var(--ok);box-shadow:0 0 0 3px rgba(47,133,90,.15);}
   .dot.off{background:var(--err);box-shadow:0 0 0 3px rgba(197,48,48,.15);}
   .ghost-btn{
     border:1px solid var(--line);background:#fff;color:var(--text-2);
-    font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;
+    font-size:12px;padding:8px 12px;border-radius:8px;cursor:pointer;
     font-family:inherit;transition:.15s;
   }
   .ghost-btn:hover{border-color:var(--accent-2);color:var(--accent);}
+  /* 跳转类按钮：去掉下划线，和 button 表现一致 */
+  a.ghost-btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;}
 
   /* ---------- 消息区 ---------- */
-  main{flex:1;overflow-y:auto;padding:22px 0 8px;scroll-behavior:smooth;}
-  .wrap{max-width:900px;margin:0 auto;padding:0 22px;}
-
-  .welcome{text-align:center;padding:44px 0 26px;}
-  .welcome h2{font-size:19px;font-weight:700;color:var(--accent);letter-spacing:.5px;}
-  .welcome p{font-size:13px;color:var(--text-3);margin-top:8px;line-height:1.7;}
-  .chips{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:22px;}
-  .chip{
-    background:var(--card);border:1px solid var(--line);border-radius:20px;
-    padding:8px 15px;font-size:12.5px;color:var(--text-2);cursor:pointer;transition:.15s;
+  /* 垂直居中：空状态时内容落在视觉重心上，不再顶对齐留一大片空白；
+     有消息后 .wrap 高度撑开，自然回到顶部对齐 */
+  main{
+    flex:1;overflow-y:auto;padding:24px 0;scroll-behavior:smooth;
+    display:flex;flex-direction:column;justify-content:center;
   }
-  .chip:hover{border-color:var(--accent-2);color:var(--accent);background:var(--accent-soft);}
+  .wrap{width:100%;max-width:900px;margin:0 auto;padding:0 24px;}
+  main.has-msg{justify-content:flex-start;}
 
-  .msg{display:flex;gap:12px;margin-bottom:20px;}
+  .welcome{text-align:center;padding:0 0 24px;}
+  .welcome h2{font-size:19px;font-weight:700;color:var(--accent);letter-spacing:.5px;}
+  .welcome .lead{font-size:13px;color:var(--text-3);margin-top:8px;line-height:1.7;}
+
+  /* 空状态的数据概览：数字来自 /api/health 的真实统计 */
+  .stats{display:flex;justify-content:center;gap:48px;margin-top:24px;flex-wrap:wrap;}
+  .stats .cell{min-width:96px;}
+  .stats .n{
+    font-size:28px;font-weight:700;color:var(--accent);line-height:1.1;
+    font-variant-numeric:tabular-nums;
+  }
+  .stats .k{font-size:11.5px;color:var(--text-3);margin-top:8px;}
+
+  /* 示例问题：按主题分三组卡片，替代平铺一排 chip */
+  .groups{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:12px;
+    margin-top:24px;text-align:left;
+  }
+  .group{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;display:flex;flex-direction:column;gap:8px;
+  }
+  .group h3{
+    font-size:12px;font-weight:600;color:var(--text-2);
+    display:flex;align-items:center;gap:8px;
+  }
+  .group h3 svg{color:var(--accent-2);flex:0 0 auto;}
+  .q{
+    text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:8px;
+    padding:8px 12px;font-size:12.5px;color:var(--text-2);cursor:pointer;
+    font-family:inherit;line-height:1.6;transition:.15s;
+  }
+  .q:hover{border-color:var(--accent-2);color:var(--accent);background:var(--accent-soft);}
+
+  .msg{display:flex;gap:12px;margin-bottom:24px;}
   .avatar{
-    width:32px;height:32px;border-radius:9px;flex:0 0 auto;
+    width:32px;height:32px;border-radius:8px;flex:0 0 auto;
     display:flex;align-items:center;justify-content:center;font-size:15px;
   }
   .msg.user .avatar{background:var(--accent-soft);color:var(--accent);}
-  .msg.bot .avatar{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;}
+  .msg.bot .avatar{background:var(--accent-2);color:#fff;}
   .bubble{flex:1;min-width:0;}
   .msg.user .bubble{
-    background:var(--accent);color:#fff;padding:11px 15px;border-radius:var(--radius);
+    background:var(--accent);color:#fff;padding:12px 16px;border-radius:var(--radius);
     border-top-left-radius:4px;font-size:13.5px;line-height:1.65;
     display:inline-block;max-width:100%;word-break:break-word;
   }
   .card{
     background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-    overflow:hidden;margin-bottom:10px;
+    overflow:hidden;margin-bottom:8px;
   }
   .card-head{
-    padding:9px 14px;font-size:12px;font-weight:600;color:var(--text-2);
+    padding:12px 16px;font-size:12px;font-weight:600;color:var(--text-2);
     border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;
     background:#fafbfd;
   }
   .card-head .tag{
-    font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:5px;
+    font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:5px;
     background:var(--accent-soft);color:var(--accent);
   }
-  .card-head .right{margin-left:auto;display:flex;gap:7px;align-items:center;}
-  .card-body{padding:12px 14px;}
+  .card-head .right{margin-left:auto;display:flex;gap:8px;align-items:center;}
+  .card-body{padding:12px 16px;}
 
   /* 步骤 */
-  .steps{display:flex;flex-wrap:wrap;gap:7px;}
+  .steps{display:flex;flex-wrap:wrap;gap:8px;}
   .step{
-    font-size:11.5px;padding:4px 10px;border-radius:14px;
-    background:#f0f3f7;color:var(--text-3);display:flex;align-items:center;gap:6px;
+    font-size:11.5px;padding:4px 12px;border-radius:5px;
+    background:#f0f3f7;color:var(--text-3);display:flex;align-items:center;gap:8px;
   }
   .step.active{background:var(--accent-soft);color:var(--accent);font-weight:600;}
   .step.done{background:#eaf6ee;color:var(--ok);}
@@ -114,7 +146,7 @@
 
   /* SQL */
   pre.sql{
-    background:var(--code-bg);color:#dbe7f3;padding:13px 15px;margin:0;
+    background:var(--code-bg);color:#dbe7f3;padding:16px;margin:0;
     font-family:"Cascadia Code",Consolas,"Courier New",monospace;
     font-size:12.5px;line-height:1.65;overflow-x:auto;white-space:pre-wrap;
     word-break:break-word;
@@ -131,24 +163,29 @@
     position:sticky;top:0;background:#f7f9fc;color:var(--text-2);font-weight:600;
     text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap;
   }
-  td{padding:7px 12px;border-bottom:1px solid #f0f3f7;color:var(--text-2);white-space:nowrap;}
+  td{padding:8px 12px;border-bottom:1px solid #f0f3f7;color:var(--text-2);white-space:nowrap;}
   tbody tr:hover{background:#fafcff;}
   tbody tr:last-child td{border-bottom:none;}
   .num-cell{text-align:right;font-variant-numeric:tabular-nums;}
 
   /* 洞察 */
   .insight{
-    background:linear-gradient(180deg,#fbfdff,#f5f9fd);
+    background:var(--accent-soft);
     border-left:3px solid var(--accent-2);
-    padding:13px 16px;font-size:13.5px;line-height:1.8;color:var(--text-2);
+    padding:16px;font-size:13.5px;line-height:1.8;color:var(--text-2);
   }
   .insight strong{color:var(--accent);}
-  .insight ol{margin:6px 0 0 20px;}
+  .insight ol{margin:8px 0 0 20px;}
   .insight li{margin-bottom:4px;}
 
   .err{
     background:#fff5f5;border:1px solid #fed7d7;border-left:3px solid var(--err);
-    padding:11px 15px;font-size:13px;color:#9b2c2c;border-radius:8px;line-height:1.6;
+    padding:12px 16px;font-size:13px;color:#9b2c2c;border-radius:8px;line-height:1.6;
+  }
+  /* 拒答提示：这是"能力边界"而不是"系统故障"，所以用中性色，不用报错红 */
+  .info{
+    background:#f7fafc;border:1px solid var(--line);border-left:3px solid var(--accent-2);
+    padding:12px 16px;font-size:13px;color:var(--text);border-radius:8px;line-height:1.7;
   }
   .meta{font-size:11.5px;color:var(--text-3);margin-top:4px;}
 
@@ -157,12 +194,12 @@
   /* ---------- 输入区 ---------- */
   footer{
     flex:0 0 auto;background:var(--card);border-top:1px solid var(--line);
-    padding:13px 22px 15px;
+    padding:16px 24px;
   }
   .input-row{
-    max-width:900px;margin:0 auto;display:flex;gap:10px;align-items:flex-end;
-    background:var(--bg);border:1.5px solid var(--line);border-radius:14px;
-    padding:9px 10px 9px 15px;transition:.15s;
+    max-width:900px;margin:0 auto;display:flex;gap:8px;align-items:flex-end;
+    background:var(--bg);border:1.5px solid var(--line);border-radius:12px;
+    padding:8px 8px 8px 16px;transition:.15s;
   }
   .input-row:focus-within{border-color:var(--accent-2);background:#fff;
     box-shadow:0 0 0 3px rgba(45,127,193,.1);}
@@ -173,28 +210,40 @@
   }
   textarea::placeholder{color:#a9b3c1;}
   button.send{
-    flex:0 0 auto;width:36px;height:36px;border-radius:10px;border:none;cursor:pointer;
-    background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;
+    flex:0 0 auto;width:36px;height:36px;border-radius:8px;border:none;cursor:pointer;
+    background:var(--accent);color:#fff;
     display:flex;align-items:center;justify-content:center;transition:.15s;
   }
   button.send:disabled{opacity:.35;cursor:not-allowed;}
-  button.send:not(:disabled):hover{transform:translateY(-1px);}
-  .hint{max-width:900px;margin:7px auto 0;font-size:11px;color:var(--text-3);text-align:center;}
+  button.send:not(:disabled):hover{background:var(--accent-2);}
+  .hint{max-width:900px;margin:8px auto 0;font-size:11px;color:var(--text-3);text-align:center;}
 
   /* ---------- 弹层 ---------- */
   .modal{
     position:fixed;inset:0;background:rgba(26,32,44,.45);display:none;
-    align-items:center;justify-content:center;padding:30px;z-index:50;
+    align-items:center;justify-content:center;padding:24px;z-index:50;
   }
   .modal.show{display:flex;}
   .modal-box{
-    background:#fff;border-radius:14px;max-width:660px;width:100%;
+    background:#fff;border-radius:var(--radius);max-width:660px;width:100%;
     max-height:78vh;display:flex;flex-direction:column;overflow:hidden;
   }
-  .modal-box .card-head{background:#fff;padding:14px 18px;font-size:13.5px;color:var(--text);}
+  .modal-box .card-head{background:#fff;padding:16px;font-size:13.5px;color:var(--text);}
   .modal-box pre{
-    padding:16px 18px;overflow:auto;font-size:12.5px;line-height:1.7;
+    padding:16px;overflow:auto;font-size:12.5px;line-height:1.7;
     font-family:Consolas,monospace;color:var(--text-2);white-space:pre-wrap;
+  }
+
+  /* ---------- 响应式：≤768px ---------- */
+  @media (max-width:768px){
+    header{padding:12px 16px;gap:8px;flex-wrap:wrap;}
+    .titles p{display:none;}
+    main{padding:16px 0;justify-content:flex-start;}
+    .wrap{padding:0 16px;}
+    .groups{grid-template-columns:1fr;gap:8px;}
+    .stats{gap:24px;}
+    footer{padding:12px 16px;}
+    .hint{display:none;}
   }
 </style>
 </head>
@@ -208,6 +257,14 @@
   </div>
   <div class="spacer"></div>
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">连接中…</span></div>
+  <a class="ghost-btn nav-btn" href="/console">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 3v18h18"></path><path d="M7 15l4-5 3 3 5-7"></path>
+    </svg>
+    运营台
+  </a>
+  <button class="ghost-btn" id="clearBtn">清空对话</button>
   <button class="ghost-btn" id="schemaBtn">表结构</button>
 </header>
 
@@ -215,8 +272,12 @@
   <div class="wrap" id="stream">
     <div class="welcome" id="welcome">
       <h2>用一句话问你的数据</h2>
-      <p>直接提问，Agent 会自动生成 SQL、查询数据库，并给出业务解读和运营建议。</p>
-      <div class="chips" id="chips"></div>
+      <p class="lead">自动生成 SQL、查询数据库，并给出业务解读与运营建议。</p>
+      <div class="stats" id="stats">
+        <div class="cell"><div class="n" id="statTables">–</div><div class="k">数据表</div></div>
+        <div class="cell"><div class="n" id="statRows">–</div><div class="k">数据行数</div></div>
+        <div class="cell"><div class="n" id="statCols">–</div><div class="k">可分析字段</div></div>
+      </div>      <div class="groups" id="groups"></div>
     </div>
   </div>
 </main>
@@ -243,13 +304,35 @@
 </div>
 
 <script>
-const EXAMPLES = [
-  "帮我找出购买次数前十的用户，并给出运营策略",
-  "各行为类型（浏览/收藏/加购/购买）的数量分布",
-  "每天的活跃用户数趋势是怎样的",
-  "浏览到购买的转化率是多少",
-  "哪些商品被加购但没购买最多",
-  "购买次数最多的用户集中在哪几天"
+/* 示例问题按主题分组：比平铺一排 chip 更容易看出"这个工具能回答哪类问题" */
+const EXAMPLE_GROUPS = [
+  {
+    title: '用户分析',
+    icon: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>',
+    items: [
+      '帮我找出购买次数前十的用户，并给出运营策略',
+      '购买次数最多的用户集中在哪几天',
+      '有多少用户只浏览过一次就再也没回来'
+    ]
+  },
+  {
+    title: '转化漏斗',
+    icon: '<path d="M3 4h18l-7 8v6l-4 2v-8z"></path>',
+    items: [
+      '各行为类型（浏览/收藏/加购/购买）的数量分布',
+      '浏览到购买的转化率是多少',
+      '哪些商品被加购但没购买最多'
+    ]
+  },
+  {
+    title: '趋势与商品',
+    icon: '<path d="M3 3v18h18"></path><path d="M7 15l4-5 3 3 5-7"></path>',
+    items: [
+      '每天的活跃用户数趋势是怎样的',
+      '被浏览最多的前十个商品是哪些',
+      '收藏最多但一次都没买的商品有哪些'
+    ]
+  }
 ];
 
 const streamEl = document.getElementById('stream');
@@ -261,14 +344,23 @@ const welcomeEl = document.getElementById('welcome');
 let history = [];
 let busy = false;
 
-/* ---------------- 初始化 ---------------- */
-const chips = document.getElementById('chips');
-EXAMPLES.forEach(t => {
-  const b = document.createElement('button');
-  b.className = 'chip';
-  b.textContent = t;
-  b.onclick = () => { inputEl.value = t; autoGrow(); submit(); };
-  chips.appendChild(b);
+/* ---------------- 初始化：渲染示例问题分组 ---------------- */
+const groupsEl = document.getElementById('groups');
+EXAMPLE_GROUPS.forEach(g => {
+  const box = document.createElement('div');
+  box.className = 'group';
+  const h3 = document.createElement('h3');
+  h3.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${g.icon}</svg>${g.title}`;
+  box.appendChild(h3);
+  g.items.forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'q';
+    b.textContent = t;
+    b.onclick = () => { inputEl.value = t; autoGrow(); submit(); };
+    box.appendChild(b);
+  });
+  groupsEl.appendChild(box);
 });
 
 /* ---------------- 后端地址解析 ----------------
@@ -295,17 +387,41 @@ async function resolveBackend() {
   }
 }
 
+/* 空状态的数据概览：数字全部来自真实接口
+   表数量 / 数据行数 → /api/health；可分析字段 → /api/schema（数一下提示词里的字段行） */
+function renderStats(health, fieldCount) {
+  document.getElementById('statTables').textContent =
+    (health.table_count != null) ? health.table_count : '–';
+  document.getElementById('statRows').textContent =
+    (health.rows != null) ? health.rows.toLocaleString() : '–';
+  document.getElementById('statCols').textContent =
+    (fieldCount != null) ? fieldCount : '–';
+}
+
 resolveBackend().then(d => {
   const dot = document.getElementById('dot');
   const txt = document.getElementById('statusText');
   if (d.database) {
     dot.className = 'dot on';
     txt.textContent = `${d.database_name} · ${d.table_count} 张表 · ${d.rows.toLocaleString()} 行`;
+    renderStats(d, null);
+    // 可分析字段数：从表结构提示词里数出来，失败就保持 "–"，不影响页面
+    fetch(API_BASE + '/api/schema')
+      .then(r => r.json())
+      .then(s => {
+        if (!s.ok) return;
+        const n = (s.schema.match(/^\s*- /gm) || []).length;
+        renderStats(d, n || null);
+      })
+      .catch(() => {});
   } else {
     dot.className = 'dot off';
     txt.textContent = '数据库未连接';
-    addBot([{ type: 'error', text: '数据库连接失败：' + (d.error || '未知错误') +
-      '\n请确认 MySQL 已启动，并在 web/.env 里填好 DB_USER / DB_PASSWORD / DB_NAME。' }]);
+    document.getElementById('statTables').textContent = '–';
+    document.getElementById('statRows').textContent = '–';
+    document.getElementById('statCols').textContent = '–';
+    addBot([{ type: 'error', text: '数据库连接失败。请确认 MySQL 已启动，并在项目根目录的 .env 里填好 ' +
+      'DB_USER / DB_PASSWORD / DB_NAME；详细报错见后端 logs/app.log。' }]);
   }
   if (!d.api_key) {
     addBot([{ type: 'error', text: '未检测到 DEEPSEEK_API_KEY。请复制 .env.example 为 .env 并填入你的 Key，然后重启服务。' }]);
@@ -316,7 +432,7 @@ resolveBackend().then(d => {
   addBot([{ type: 'error', text:
     '连不上后端服务。\n\n' +
     '当前页面是以静态方式打开的（自身没有后端），同时本机 8000 端口也没有服务在运行。\n\n' +
-    '解决办法：先在 web 目录下启动服务\n' +
+    '解决办法：先在项目根目录下启动服务\n' +
     '    python app.py\n' +
     '然后访问 http://127.0.0.1:8000\n\n' +
     '注意：不要直接双击 index.html，也不要用编辑器的静态预览打开它——那样只有页面、没有后端。' }]);
@@ -338,10 +454,13 @@ async function submit() {
   const q = inputEl.value.trim();
   if (!q || busy) return;
   busy = true; sendBtn.disabled = true;
+  chat.currentQuestion = q;
   inputEl.value = ''; autoGrow();
   if (welcomeEl) welcomeEl.style.display = 'none';
+  mainEl.classList.add('has-msg');   // 有消息后取消垂直居中，回到顶部对齐
 
   addUser(q);
+  chat.messages.push({ role: 'user', text: q });
   const ui = addBotShell();
   scrollDown();
 
@@ -367,8 +486,10 @@ async function submit() {
         if (ev) handle(ev.name, ev.data, ui);
       }
     }
-    history.push({ question: q, sql: ui.sql || '' });
+    history.push({ question: q, sql: ui.sql || '', result_summary: ui.digest || '' });
     if (history.length > 6) history = history.slice(-6);
+    chat.apiHistory = history;
+    saveChat();
   } catch (err) {
     ui.add({ type: 'error', text: '请求失败：' + err.message });
   } finally {
@@ -410,7 +531,7 @@ function addBotShell() {
   streamEl.appendChild(el);
   const bubble = el.querySelector('.bubble');
 
-  const state = { sql: '', started: Date.now() };
+  const state = { sql: '', digest: '', started: Date.now() };
   let stepsBox = null;
   const stepMap = new Map();
 
@@ -439,6 +560,7 @@ function addBotShell() {
 
   return {
     get sql() { return state.sql; },
+    get digest() { return state.digest; },
     add(block) {
       if (block.type === 'stage') { markStep(block.stage, block.text, 'active'); }
       else if (block.type === 'sql') {
@@ -455,6 +577,14 @@ function addBotShell() {
         markStep('query', `查询完成 · ${block.total.toLocaleString()} 行`, 'done');
         bubble.appendChild(resultCard(block));
       }
+      else if (block.type === 'refusal') {
+        // 模型判定超出表结构能力范围：这是能力边界，不是报错
+        markStep('sql', '已判断为超出当前数据范围', 'done');
+        const d = document.createElement('div');
+        d.className = 'info';
+        d.textContent = '无法回答：' + block.reason + '（可以换个口径，或先把相关字段接入数据源）';
+        bubble.appendChild(d);
+      }
       else if (block.type === 'insight') {
         markStep('insight', '业务洞察已生成', 'done');
         bubble.appendChild(insightCard(block.text));
@@ -463,7 +593,9 @@ function addBotShell() {
         stepMap.forEach(s => { if (s.className.includes('active')) s.className = 'step'; });
         const d = document.createElement('div');
         d.className = 'err';
-        d.textContent = block.text;
+        // 只展示后端给的友好文案（原始报错在后端 logs/app.log 里）；
+        // 安全护栏的拦截属于产品语义，单独用标签标出来
+        d.textContent = (block.blocked ? '已拦截 · ' : '') + block.text;
         bubble.appendChild(d);
       }
       scrollDown();
@@ -525,7 +657,11 @@ function resultCard(block) {
   c.className = 'card';
   let head = `<div class="card-head"><span class="tag">结果</span>
       共 ${block.total.toLocaleString()} 行${block.truncated ? `，仅显示前 ${block.rows.length} 行` : ''}
-      <span class="right"><button class="ghost-btn csv">导出 CSV</button></span></div>`;
+      <span class="right">
+        <button class="ghost-btn fb-up" title="这个答案有用">👍</button>
+        <button class="ghost-btn fb-down" title="结果不对 / 不是我要的">👎</button>
+        <button class="ghost-btn csv">导出 CSV</button>
+      </span></div>`;
 
   if (!block.rows.length) {
     c.innerHTML = head + '<div class="empty">查询结果为空</div>';
@@ -572,6 +708,22 @@ function resultCard(block) {
     e.target.textContent = '已导出';
     setTimeout(() => e.target.textContent = '导出 CSV', 1200);
   };
+
+  // 👍/👎 反馈：一次点击就多一条真实标注，落盘到后端 feedback.jsonl
+  const upBtn = c.querySelector('.fb-up');
+  const downBtn = c.querySelector('.fb-down');
+  function sendFeedback(rating, btn) {
+    fetch(API_BASE + '/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating, question: block.question || '', sql: block.sql || '' })
+    }).then(() => {
+      upBtn.disabled = downBtn.disabled = true;
+      btn.textContent = '已记录';
+    }).catch(() => { btn.textContent = '记录失败'; });
+  }
+  upBtn.onclick = () => sendFeedback('up', upBtn);
+  downBtn.onclick = () => sendFeedback('down', downBtn);
   return c;
 }
 
@@ -616,14 +768,119 @@ document.getElementById('schemaBtn').onclick = async () => {
   } catch (e) { pre.textContent = '读取失败：' + e.message; }
 };
 
+/* ---------------- 本地历史（localStorage） ----------------
+   刷新页面不该丢掉刚才问过什么。存两样东西：
+   messages = 界面能重放的最小数据；apiHistory = 发给后端的多轮上下文。
+   注意 API 上下文里带 digest（列名+行数+前几行），存盘时会压到只留列名和行数，
+   否则 localStorage 会迅速被表格数据撑满。
+*/
+const CHAT_KEY = 'nl2sql_chat_v1';
+const chat = { messages: [], apiHistory: [], currentQuestion: '' };
+
+function compactDigest(digest) {
+  return String(digest || '').replace(/前 \d+ 行：.*$/, '').trim();
+}
+
+function saveChat() {
+  try {
+    localStorage.setItem(CHAT_KEY, JSON.stringify({
+      messages: chat.messages.slice(-30),
+      apiHistory: chat.apiHistory.slice(-6).map(h => ({
+        question: h.question || '',
+        sql: h.sql || '',
+        result_summary: compactDigest(h.result_summary)
+      }))
+    }));
+  } catch (e) { /* 隐私模式 / 超配额时静默降级 */ }
+}
+
+function loadChat() {
+  try {
+    const raw = localStorage.getItem(CHAT_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || !Array.isArray(data.messages)) return null;
+    return data;
+  } catch (e) { return null; }
+}
+
+/* 把存下来的对话重放回界面：只重建卡片，不重新请求后端 */
+function restoreChat(data) {
+  const items = data.messages || [];
+  if (!items.length) return;
+  if (welcomeEl) welcomeEl.style.display = 'none';
+  mainEl.classList.add('has-msg');
+  for (const it of items) {
+    if (it.role === 'user') { addUser(it.text || ''); continue; }
+    const ui = addBotShell();
+    if (it.sql) ui.add({ type: 'sql', sql: it.sql });
+    if (it.result) {
+      ui.add({ type: 'result', ...it.result, sql: it.sql || '',
+               question: (it.result && it.result.question) || '' });
+    }
+    if (it.insight) ui.add({ type: 'insight', text: it.insight });
+    if (it.refusal) ui.add({ type: 'refusal', reason: it.refusal });
+    if (it.error) ui.add({ type: 'error', text: it.error });
+    ui.finish();
+  }
+  chat.apiHistory = data.apiHistory || [];
+  history = chat.apiHistory;     // 多轮上下文一起恢复
+  scrollDown();
+}
+
+document.getElementById('clearBtn').onclick = () => {
+  chat.messages = []; chat.apiHistory = []; history = [];
+  streamEl.innerHTML = '';
+  welcomeEl.style.display = '';
+  mainEl.classList.remove('has-msg');
+  try { localStorage.removeItem(CHAT_KEY); } catch (e) { /* 忽略 */ }
+};
+
 /* ---------------- SSE 事件分发 ---------------- */
 function handle(name, data, ui) {
-  if (name === 'stage') ui.add({ type: 'stage', stage: data.stage, text: data.text });
-  else if (name === 'sql') ui.add({ type: 'sql', sql: data.sql, attempt: data.attempt, adjusted: data.adjusted, blocked: data.blocked });
-  else if (name === 'result') ui.add({ type: 'result', ...data });
-  else if (name === 'insight') ui.add({ type: 'insight', text: data.text });
-  else if (name === 'error') ui.add({ type: 'error', text: data.text });
+  if (name === 'stage') {
+    ui.add({ type: 'stage', stage: data.stage, text: data.text });
+    return;
+  }
+  if (name === 'sql') {
+    if (!data.blocked) chat.messages.push({ role: 'bot', sql: data.sql });
+    ui.add({ type: 'sql', sql: data.sql, attempt: data.attempt, adjusted: data.adjusted, blocked: data.blocked });
+  }
+  else if (name === 'result') {
+    // 结果里带上 SQL 和问题：👎 反馈要能定位到具体哪次问答
+    const block = { type: 'result', ...data, sql: ui.sql, question: chat.currentQuestion };
+    const last = chat.messages[chat.messages.length - 1];
+    if (last && last.role === 'bot' && !last.result) {
+      last.result = {
+        columns: block.columns, rows: block.rows, total: block.total,
+        truncated: block.truncated, question: block.question
+      };
+    } else {
+      chat.messages.push({ role: 'bot', sql: ui.sql,
+        result: { columns: block.columns, rows: block.rows, total: block.total,
+                  truncated: block.truncated, question: block.question } });
+    }
+    ui.add(block);
+  }
+  else if (name === 'insight') {
+    chat.messages.push({ role: 'bot', insight: data.text });
+    ui.add({ type: 'insight', text: data.text });
+  }
+  else if (name === 'refusal') {
+    chat.messages.push({ role: 'bot', refusal: data.reason });
+    ui.add({ type: 'refusal', reason: data.reason });
+  }
+  else if (name === 'error') {
+    chat.messages.push({ role: 'bot', error: data.text });
+    ui.add({ type: 'error', text: data.text, blocked: data.blocked });
+  }
+  else return;
+  saveChat();
 }
+
+/* ---------------- 启动：恢复上一次的会话 ---------------- */
+const saved = loadChat();
+if (saved) restoreChat(saved);
 </script>
 </body>
 </html>
