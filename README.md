@@ -458,7 +458,7 @@ python eval/run_eval.py --mode agent --cases eval/cases_aug.json --out eval/eval
 
 ![运营台概览](images/console-overview.png)
 ![运营台详情](images/console-detail.png)
-
+![运营台详情](images/核心用户服务.png)
 窄屏（768px）下多列自动塌成单列：
 
 ![运营台窄屏](images/console-mobile.png)
