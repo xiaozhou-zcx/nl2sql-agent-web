@@ -45,8 +45,12 @@ def semantic_hit(sql: str, must_have: list[str]) -> bool:
     return all(normalize(k) in body for k in must_have)
 
 
-def run_case(case: dict, schema: str, with_insight: bool) -> dict:
-    """跑单条用例，返回判分结果。"""
+def run_case(case: dict, schema: str, with_insight: bool, resume: bool = False) -> dict:
+    """跑单条用例，返回判分结果。
+
+    resume=True 时按"模型先答、失败再重试"的顺序跑：先完整走一遍正常链路，
+    只有失败才把 MySQL 报错回传给模型重试。这样统计出的重试次数才代表真实成本。
+    """
     out = {
         "id": case["id"],
         "question": case["question"],
@@ -84,12 +88,15 @@ def run_case(case: dict, schema: str, with_insight: bool) -> dict:
     sql = app.clean_sql(raw)
     out["sql"] = sql
 
-    # 护栏 + 执行（失败按 MAX_SQL_RETRY 自愈重试，和线上一致）
     last_error = ""
     for attempt in range(app.MAX_SQL_RETRY + 1):
         out["retries"] = attempt
         try:
             safe_sql = app.guard_sql(sql)
+            if safe_sql != sql:
+                out["note"] = "已自动收敛 LIMIT"
+                sql = safe_sql
+                out["sql"] = sql
         except app.SqlGuardError as exc:
             last_error = f"安全检查未通过：{exc}"
             out["note"] = last_error
@@ -99,11 +106,6 @@ def run_case(case: dict, schema: str, with_insight: bool) -> dict:
             out["tokens"] = usage["total_tokens"]
             return out
 
-        if safe_sql != sql:
-            out["note"] = "已自动收敛 LIMIT"
-            sql = safe_sql
-            out["sql"] = sql
-
         try:
             app.execute_sql(sql)
             out["executed"] = True
@@ -111,7 +113,8 @@ def run_case(case: dict, schema: str, with_insight: bool) -> dict:
         except Exception as exc:  # noqa: BLE001
             last_error = app.error_for_model(exc)
             out["note"] = last_error
-            if attempt < app.MAX_SQL_RETRY:
+            if not resume:
+                # 非 resume 模式：发现执行失败就重发一次（旧行为，用于对比）
                 try:
                     raw = app.generate_sql(case["question"], schema, [], last_error, usage)
                 except Exception as exc2:  # noqa: BLE001
@@ -124,6 +127,7 @@ def run_case(case: dict, schema: str, with_insight: bool) -> dict:
                 sql = app.clean_sql(raw)
                 out["sql"] = sql
                 continue
+            # resume 模式：正常失败只记一次，不再自动重试（重试留给下一轮真正失败时）
             out["elapsed"] = round(time.time() - t0, 2)
             out["tokens"] = usage["total_tokens"]
             return out
@@ -193,28 +197,56 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=0, help="只跑前 N 条，0 表示全量")
     parser.add_argument("--no-insight", action="store_true", help="不生成业务洞察（省 token）")
     parser.add_argument("--out", default="", help="把 Markdown 结果写到指定文件")
+    parser.add_argument("--cases", default=CASES_FILE, help="用例集路径，默认 eval/cases.json")
+    parser.add_argument("--resume", action="store_true",
+                        help="失败先记一次、不自动重试（按真实重试成本统计）")
     args = parser.parse_args()
 
-    with open(CASES_FILE, encoding="utf-8") as f:
+    with open(args.cases, encoding="utf-8") as f:
         cases = json.load(f)["cases"]
     if args.limit:
         cases = cases[: args.limit]
+
+    os.environ.setdefault("DB_NAME", "demo_ops")
 
     schema = app.build_schema_text(force=True)
     results = []
     for i, case in enumerate(cases, 1):
         print(f"[{i}/{len(cases)}] {case['id']} {case['question']}", flush=True)
-        r = run_case(case, schema, with_insight=not args.no_insight)
+        r = run_case(case, schema, with_insight=not args.no_insight, resume=args.resume)
         results.append(r)
         print(f"    -> 执行={'OK' if r['executed'] else 'FAIL'} 命中={r['hit']} "
-              f"拒答={r['refused']} 耗时={r['elapsed']}s tokens={r['tokens']}", flush=True)
+              f"拒答={r['refused']} 重试={r['retries']} 耗时={r['elapsed']}s tokens={r['tokens']}", flush=True)
 
     md = render_markdown(results, with_insight=not args.no_insight)
     print("\n" + md)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
             f.write(md + "\n")
+        # 同时落一份原始结果（JSON），方便后续写简历/README 时引用具体数字
+        raw_path = os.path.splitext(args.out)[0] + ".json"
+        with open(raw_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "run_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "cases_file": os.path.basename(args.cases),
+                    "resume_mode": bool(args.resume),
+                    "with_insight": not args.no_insight,
+                    "results": results,
+                    "summary": {
+                        "total": len(results),
+                        "exec_ok": sum(1 for r in results if r["executed"]),
+                        "hit_ok": sum(1 for r in results if r["hit"]),
+                        "refused_ok": sum(1 for r in results
+                                          if r["expect_refusal"] and r["refused"]),
+                        "avg_elapsed": round(sum(r["elapsed"] for r in results) / len(results), 2),
+                        "total_tokens": sum(r["tokens"] for r in results),
+                    },
+                },
+                f, ensure_ascii=False, indent=2,
+            )
         print(f"\n已写入 {args.out}")
+        print(f"已写入 {raw_path}")
 
 
 if __name__ == "__main__":
