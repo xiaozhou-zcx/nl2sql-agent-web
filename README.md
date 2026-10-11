@@ -58,7 +58,7 @@ Agent：
 | **👍/👎 反馈** | 结果卡片上点一下即落盘 `feedback.jsonl`，积累真实 bad case |
 | **多工具 Agent（可切换）** | 问数页顶栏可切「流水线 / Agent」两种模式。Agent 模式下**模型自己决定调哪个工具、调几步**：`query_schema`（看表结构）、`query_column_values`（看字段取值）、`run_sql`（跑查询）、`search_docs`（检索运营口径文档），页面上能实时看到每一步在干什么 |
 | **运营台（闭环）** | `/console` 把分析结果落到人身上：按购买行为分层 → 看用户画像与推荐商品 → 一键下发服务并落盘 `user_tags.jsonl`，形成「分析 → 决策 → 行动」闭环 |
-| **可量化评估** | `eval/` 下一套 25 条用例 + 一键跑分脚本，输出执行成功率 / 语义正确率 / token 成本 |
+| **可量化评估** | `eval/` 下一套 26 条用例 + 一键跑分脚本，输出执行成功率 / 结果符合预期 / 拒答率 / 延迟 / token 成本 |
 | **可观测** | 每次提问的问题、SQL、重试次数、耗时、行数、token 全量落 `logs/app.log` |
 | **废弃列屏蔽** | `user_behavior.behavior_count` 全为 0，已从提示词里剔除，避免模型误用得出错误结论 |
 | **密钥外置 / 错误脱敏** | 密钥走 `.env`；原始报错只进日志，前端只看到友好提示 |
@@ -159,11 +159,10 @@ python app.py
 │   ├── 01_behavior_analysis.sql  # 手工分析 SQL 参考（行为漏斗 / 高频购买用户）
 │   └── 02_funnel_by_user.sql     # 按用户去重的严格顺序漏斗（含口径说明与结果）
 ├── docs/
-│   ├── CHANGELOG.md              # 改动总览（写简历 / 面试用）
-│   └── 口径文档.md               # 给 Agent 检索的运营口径说明（示例文档）
+│   └── 口径文档-示例.md          # 给 Agent 检索的运营口径说明（示例文档）
 ├── eval/
-│   ├── cases.json                # 25 条评估用例（含 3 条超纲拒答用例）
-│   ├── cases_aug.json            # 26 条版本：问题里显式写明数据时间范围
+│   ├── cases.json                # 26 条评估用例（含 3 条超纲拒答用例）
+│   ├── cases_aug.json            # 同一套用例的“带时间范围”版本（跑分默认用它）
 │   ├── run_eval.py               # 一键跑分：流水线 / Agent 两种模式
 │   ├── results.md                # 最近一次流水线跑分结果
 │   └── eval_agent5.md            # Agent 模式首批 5 条跑分结果
@@ -191,9 +190,11 @@ python -m pytest tests -q
 
 ## 数据导入
 
-**数据来源：** `sql/00_init.sql` 里是 **425 行样例数据**，从真实公开数据集
-[AliMobile / UserBehavior](https://tianchi.aliyun.com/dataset/649)（淘宝用户行为，约 1 亿行）
-按「4 个自然日 + 购买频次最高的两位用户」抽样而来，覆盖 `pv` / `fav` / `cart` / `buy` 四类行为。
+**数据来源：** `sql/00_init.sql` 里是 **4,784 行样例数据**，从真实公开数据集
+[AliMobile / UserBehavior](https://tianchi.aliyun.com/dataset/649)（淘宝用户行为，约 1 亿行）抽样而来：
+以 2017-11-25、11-26、12-02、12-03 四天为底，另把购买频次最高的 8 位用户和 12 位中等频次用户的完整行为补进来，
+覆盖 `pv` / `fav` / `cart` / `buy` 四类行为、跨 10 天（2017-11-24 ~ 2017-12-03）。
+这样抽样是为了让"按天趋势""高频购买用户""用户分层"这几类问题都有数据可查；
 它只够演示与自测，**不建议直接拿来做真实分析结论**。
 
 想跑真实规模（本项目本地验证用的是约 60 万行版本）：
@@ -294,7 +295,7 @@ python eval/run_eval.py --no-insight    # 只测取数链路，不生成洞察�
 ```
 
 > `--resume` 表示失败先记一次、不自动重试，这样统计出的重试次数才代表真实成本；
-> 用例集 `eval/cases_aug.json` 是在原 25 条基础上加了 1 条时间区间题，并在问题里显式写明数据时间范围。
+> `eval/cases_aug.json` 与 `cases.json` 是同一批 26 条用例，区别是它把数据时间范围写进了问题里，跑分默认用它。
 
 **用例设计**（26 条）：
 
@@ -343,7 +344,7 @@ python eval/run_eval.py --no-insight    # 只测取数链路，不生成洞察�
 
 ```bash
 python eval/run_eval.py --cases eval/cases_aug.json --resume --out eval/eval_aug.md          # 流水线
-python eval/run_eval.py --mode agent --cases eval/cases_aug.json --out eval/eval_agent.md    # Agent
+python eval/run_eval.py --mode agent --cases eval/cases_aug.json --out eval/eval_agent.md   # Agent（文件名可自定义）
 ```
 
 | 指标 | 流水线（固定链路） | Agent（多工具多步） |
@@ -425,12 +426,12 @@ python eval/run_eval.py --mode agent --cases eval/cases_aug.json --out eval/eval
 - **执行成功率**：链路通不通（护栏误拦、SQL 语法错、字段不存在都会掉在这里）；
 - **语义正确率**：口径对不对（用 `must_have` 关键词校验表、过滤条件、聚合维度是否用对）；
 - **超纲拒答率**：知不知道自己的能力边界（该拒答时硬编 SQL，比报错危险得多）；
-- **每问 token 成本**：这个方案能不能规模化（当前均值 ≈ 1,360 token/问）。
+- **每问 token 成本**：这个方案能不能规模化（流水线均值 ≈ 1,300 token/问，Agent 模式 ≈ 4,000）。
 
 这四个指标里，**语义正确率是唯一不能靠工程手段刷高的**，它直接反映提示词质量，所以每次改提示词都应该重跑。
 
 **成本边界在哪。**
-- **单次成本**：一次提问 ≈ 1,360 token，SQL 生成 1 次 + 洞察 1 次；报错自愈最多 3 次调用，
+- **单次成本**：一次提问 ≈ 1,300 token（流水线），SQL 生成 1 次 + 洞察 1 次；报错自愈最多 3 次调用，
   所以单问成本有上限（`MAX_SQL_RETRY` 就是成本闸门）。
 - **查询成本**：把"数据量多少行"写进提示词、强制 `LIMIT`、引导模型先聚合再取明细，
   都是为了避免一条 SQL 把线上库拖死；`SQL_HARD_LIMIT` 是硬闸门。

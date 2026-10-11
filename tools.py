@@ -30,7 +30,7 @@ QUERY_ROW_LIMIT = 20
 _IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 # 口径文档：按 ## 小节切开检索，最多返回几节
-DOCS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "口径文档.md")
+DOCS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "口径文档-示例.md")
 DOCS_TOP_N = 2
 
 
