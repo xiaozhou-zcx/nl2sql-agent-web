@@ -56,6 +56,7 @@ Agent：
 | **流式输出** | SSE 推送，SQL、结果表、洞察逐步出现，不用干等 |
 | **结果可导出** | 表格右上角一键导出 CSV（带 BOM，Excel 打开不乱码） |
 | **👍/👎 反馈** | 结果卡片上点一下即落盘 `feedback.jsonl`，积累真实 bad case |
+| **多工具 Agent（可切换）** | 问数页顶栏可切「流水线 / Agent」两种模式。Agent 模式下**模型自己决定调哪个工具、调几步**：`query_schema`（看表结构）、`query_column_values`（看字段取值）、`run_sql`（跑查询）、`search_docs`（检索运营口径文档），页面上能实时看到每一步在干什么 |
 | **运营台（闭环）** | `/console` 把分析结果落到人身上：按购买行为分层 → 看用户画像与推荐商品 → 一键下发服务并落盘 `user_tags.jsonl`，形成「分析 → 决策 → 行动」闭环 |
 | **可量化评估** | `eval/` 下一套 25 条用例 + 一键跑分脚本，输出执行成功率 / 语义正确率 / token 成本 |
 | **可观测** | 每次提问的问题、SQL、重试次数、耗时、行数、token 全量落 `logs/app.log` |
@@ -81,7 +82,8 @@ Agent：
 - DeepSeek API（兼容 OpenAI SDK）：生成 SQL + 生成业务洞察
 - Prompt 设计：表结构与字段注释、Few-shot 示例、列值采样、多轮上下文
 - 护栏与成本：只读校验、报错自愈重试（≤2 次）、token 用量统计
-- 评测：26 条固定用例 + 一键跑分脚本（成功率 / 拒答率 / 延迟 / token）
+- Agent：Function Calling + 多工具编排（4 个工具、最多 3 步），前端展示执行过程
+- 评测：26 条固定用例 + 一键跑分脚本（成功率 / 拒答率 / 延迟 / token / 工具选择）
 
 **前端**
 - 原生 JavaScript 单文件（无框架、无构建）：页面由 AI 编程助手生成，
@@ -147,21 +149,28 @@ python app.py
 ```
 实习项目2/
 ├── app.py                        # FastAPI 后端：三步链路 + SQL 护栏 + SSE + 运营台接口
+├── agent.py                      # Agent 编排：模型自己决定调哪个工具、调几步
+├── tools.py                      # Agent 工具层：查表结构 / 查字段取值 / 跑 SQL / 检索口径文档
 ├── static/
-│   ├── index.html                # 问数页（单文件原生 JS，无构建步骤）
+│   ├── index.html                # 问数页（单文件原生 JS，无构建步骤；顶栏可切流水线/Agent）
 │   └── console.html              # 高价值用户运营台（单文件原生 JS）
 ├── sql/
 │   ├── 00_init.sql               # 建库建表 + 样例数据（第一次跑必执行）
 │   ├── 01_behavior_analysis.sql  # 手工分析 SQL 参考（行为漏斗 / 高频购买用户）
 │   └── 02_funnel_by_user.sql     # 按用户去重的严格顺序漏斗（含口径说明与结果）
+├── docs/
+│   ├── CHANGELOG.md              # 改动总览（写简历 / 面试用）
+│   └── 口径文档.md               # 给 Agent 检索的运营口径说明（示例文档）
 ├── eval/
 │   ├── cases.json                # 25 条评估用例（含 3 条超纲拒答用例）
-│   ├── run_eval.py               # 一键跑分：执行成功率 / 语义正确率 / token
-│   └── results.md                # 最近一次跑分结果
+│   ├── cases_aug.json            # 26 条版本：问题里显式写明数据时间范围
+│   ├── run_eval.py               # 一键跑分：流水线 / Agent 两种模式
+│   ├── results.md                # 最近一次流水线跑分结果
+│   └── eval_agent5.md            # Agent 模式首批 5 条跑分结果
 ├── tests/
-│   └── test_guard.py             # SQL 护栏 + 错误脱敏的回归测试（pytest）
-├── docs/
-│   └── CHANGELOG.md              # 改动总览（写简历 / 面试用）
+│   ├── test_guard.py             # SQL 护栏 + 错误脱敏的回归测试（pytest）
+│   ├── test_tools.py             # 工具层测试（16 条）
+│   └── test_agent.py             # 知识库检索 + 兜底逻辑测试（13 条）
 ├── images/                       # README 用效果图
 ├── logs/
 │   └── app.log                   # 运行日志（自动创建，已 gitignore）
@@ -256,6 +265,7 @@ source sql/00_init.sql;
 | GET | `/api/high-value-users?limit=50` | 高价值用户列表：一条 SQL 聚合出 `buy_count / view_count / cart_count / category_count / last_active / tier` |
 | POST | `/api/tag-user` | 下发服务，`{user_id, tier, action}` 追加写入 `user_tags.jsonl` |
 | GET | `/api/recommend?user_id=xxx` | 推荐商品（最多 5 个，加购未买优先、同偏好类目热销补齐）+ 一句推荐理由 |
+| POST | `/api/agent` | **Agent 模式**：多工具 + 多步，SSE 流式返回 `stage` / `tool`（每步一句）/ `answer` / `done` |
 
 ### 高价值用户分层口径
 
@@ -324,6 +334,33 @@ python eval/run_eval.py --no-insight    # 只测取数链路，不生成洞察�
 
 **已知边界**：示例数据集只有 4,784 行、跨 10 天，趋势类问题（如"每天的活跃用户数"）区分度有限；
 指标对提示词改动敏感，所以每次改提示词都应重跑，别拿旧结果当新结论。
+
+---
+
+## 流水线 vs Agent：同一套用例的两种架构
+
+这是本项目里最能说明"设计取舍"的一组数据 —— **同一批用例，两种跑法，指标完全不同**：
+
+```bash
+python eval/run_eval.py --cases eval/cases_aug.json --resume --out eval/eval_aug.md          # 流水线
+python eval/run_eval.py --mode agent --cases eval/cases_aug.json --out eval/eval_agent.md    # Agent
+```
+
+| 指标 | 流水线（固定链路） | Agent（多工具多步） |
+|---|---|---|
+| 执行成功率 | 100%（23/23） | 100%（5/5，首批） |
+| 平均耗时 | **2.65s** | 4.08s |
+| 平均 token | **约 1,300 / 问** | 约 3,989 / 问 |
+| 平均工具调用步数 | — （流程写死，固定 4 步） | 2.8 步（模型自己决定） |
+| 工具选择正确率 | — | 100%（5/5） |
+| 能回答的问题类型 | 只要取数类 | 取数 + 指标口径类（会先查口径文档） |
+| 走几步谁决定 | 代码 | **模型** |
+
+**怎么选**：只问数据、追求快和便宜 → 流水线；要问"复购率怎么算"这类口径问题、或者希望它自己决定先看表结构 → Agent。
+
+> **Agent 版已知问题**：`max_steps=3` 时，有的问题会被"看表结构 + 看字段取值 + 跑一次 SQL"占满 3 步，
+> 没机会写最终 SQL（例如 Q01 首次跑就是这样）。解决办法是把 `max_steps` 提到 4–5，或者少给一个探索工具。
+> 这个坑写在 README 里，是因为**"知道自己的方案在哪会翻车"比"指标好看"更重要**。
 
 ---
 

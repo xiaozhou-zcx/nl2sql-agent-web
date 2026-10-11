@@ -615,8 +615,71 @@ class AskRequest(BaseModel):
     history: list[dict] = []
 
 
+class AgentRequest(BaseModel):
+    question: str
+    max_steps: int = 3
+
+
 def sse(event: str, payload: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
+
+
+def agent_pipeline(question: str, max_steps: int = 3) -> Iterator[str]:
+    """Agent 链路：让模型自己决定调哪个工具，边跑边通过 SSE 报告每一步。
+
+    和 pipeline() 的区别：这里没有写死的执行顺序，走几步、调哪个工具都由模型决定。
+    每一步执行完立刻推一个 tool 事件，用户能实时看到"它正在查什么"。
+    """
+    import agent as agent_mod
+
+    t0 = time.time()
+    steps: list[dict] = []
+    max_steps = max(1, min(int(max_steps or 3), 5))
+
+    yield sse("stage", {"stage": "schema", "text": "Agent 开始工作…"})
+
+    def on_step(item: dict) -> None:
+        # 回调在 run_agent 内部被同步调用，这里只做收集，统一在下面推送
+        steps.append(item)
+
+    try:
+        result = agent_mod.run_agent(question, max_steps=max_steps, on_step=on_step)
+    except Exception as exc:  # noqa: BLE001
+        yield sse("error", {"text": friendly_error(exc, "运行 Agent")})
+        yield sse("done", {"elapsed": round(time.time() - t0, 2)})
+        return
+
+    # 把执行过程逐步推给前端
+    for item in result.get("steps", []):
+        yield sse("tool", {
+            "step": item.get("step"),
+            "tool": item.get("tool"),
+            "args": item.get("args", {}),
+            "summary": (item.get("result") or "").replace("\n", " ")[:200],
+        })
+
+    answer = result.get("answer", "")
+    usage = result.get("usage", {})
+    yield sse("answer", {"text": answer, "steps": len(result.get("steps", []))})
+    yield sse("done", {"elapsed": round(time.time() - t0, 2),
+                       "tokens": usage.get("total_tokens", 0)})
+
+    log.info("agent | question=%r | steps=%s | elapsed=%.2fs | tokens=%s",
+             question, len(result.get("steps", [])), time.time() - t0,
+             usage.get("total_tokens", 0))
+
+
+@app.post("/api/agent")
+def agent_api(req: AgentRequest):
+    """Agent 模式：多工具 + 多步执行，SSE 流式返回执行过程与最终答案。"""
+    q = (req.question or "").strip()
+    if not q:
+        return JSONResponse({"error": "问题不能为空"}, status_code=400)
+    return StreamingResponse(
+        agent_pipeline(q, req.max_steps),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/")

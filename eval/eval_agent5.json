@@ -1,0 +1,128 @@
+{
+  "run_at": "2026-10-11 14:33:33",
+  "cases_file": "cases_aug.json",
+  "mode": "agent",
+  "resume_mode": false,
+  "with_insight": true,
+  "results": [
+    {
+      "id": "Q01",
+      "question": "购买次数最多的前十个用户是谁（数据时间范围 2017-11-25 至 2017-12-03，请只查这个区间）",
+      "expect_refusal": false,
+      "sql": "SELECT user_id, COUNT(*) AS buy_count\nFROM user_behavior\nWHERE behavior_type = 'buy'\n  AND date_only BETWEEN '2017-11-25' AND '2017-12-03'\nGROUP BY user_id\nORDER BY buy_count DESC\nLIMIT 10",
+      "rows": null,
+      "executed": true,
+      "hit": true,
+      "refused": false,
+      "retries": 0,
+      "elapsed": 4.42,
+      "tokens": 3899,
+      "note": "",
+      "tools": [
+        "query_schema",
+        "run_sql"
+      ],
+      "steps": 2,
+      "tools_ok": true,
+      "answer": "在 2017-11-25 至 2017-12-03 区间内，购买次数最多的前十个用户如下：\n\n| 排名 | user_id | 购买次数 |\n|------|---------|---------|\n| 1 | 107932 | 72 |\n| 2 | 1008380 | 57 |\n| 3 | 1003983 | 43 |\n| 4 | 108865 | 36 |\n| 5 | 1003901 | 31 |\n| 6 | 1010288 | 30 |\n| 7 | 102953 | 29 |\n| 8 | 100101 | 28 |\n| 9 | 1014610 | 25 |\n| 10 | 1007071 | 24 |\n\n**说明：**\n- 统计口径为 `user_behavior` 表中 `behavior_type = 'buy'` 的记录数，按 `user_id` 分组计数。\n- 时间范围严格限定在 `date_only` 介于 2017-11-25 与 2017-12-03 之间（含首尾两天）。\n- 排名第一的用户 107932 在该区间内共产生 72 次购买行为，明显高于其他用户。"
+    },
+    {
+      "id": "Q02",
+      "question": "各行为类型的数量分布（数据时间范围 2017-11-25 至 2017-12-03，请只查这个区间）",
+      "expect_refusal": false,
+      "sql": "SELECT behavior_type, COUNT(*) AS cnt FROM user_behavior WHERE date_only BETWEEN '2017-11-25' AND '2017-12-03' GROUP BY behavior_type ORDER BY cnt DESC",
+      "rows": null,
+      "executed": true,
+      "hit": true,
+      "refused": false,
+      "retries": 0,
+      "elapsed": 3.64,
+      "tokens": 3757,
+      "note": "",
+      "tools": [
+        "query_schema",
+        "query_column_values",
+        "run_sql"
+      ],
+      "steps": 3,
+      "tools_ok": true,
+      "answer": "在 2017-11-25 至 2017-12-03 区间内，各行为类型的数量分布如下：\n\n| 行为类型 | 数量 | 占比 |\n|---|---|---|\n| pv（浏览） | 531,880 | 89.7% |\n| cart（加购） | 32,564 | 5.5% |\n| fav（收藏） | 15,785 | 2.7% |\n| buy（购买） | 12,088 | 2.0% |\n| **合计** | **592,317** | 100% |\n\n结论：该区间共 592,317 条行为记录，其中浏览（pv）占绝对主导，接近九成；加购、收藏、购买依次递减，购买行为仅占约 2%，符合典型电商\"浏览多、成交少\"的漏斗特征。"
+    },
+    {
+      "id": "Q03",
+      "question": "每天的活跃用户数趋势（数据时间范围 2017-11-25 至 2017-12-03，请只查这个区间）",
+      "expect_refusal": false,
+      "sql": "SELECT date_only, COUNT(DISTINCT user_id) AS dau FROM user_behavior WHERE date_only BETWEEN '2017-11-25' AND '2017-12-03' GROUP BY date_only ORDER BY date_only",
+      "rows": null,
+      "executed": true,
+      "hit": true,
+      "refused": false,
+      "retries": 0,
+      "elapsed": 4.66,
+      "tokens": 4313,
+      "note": "",
+      "tools": [
+        "query_schema",
+        "search_docs",
+        "run_sql"
+      ],
+      "steps": 3,
+      "tools_ok": true,
+      "answer": "## 每日活跃用户数趋势（2017-11-25 至 2017-12-03）\n\n**口径说明**：按运营文档定义，活跃用户 = 统计周期内至少产生过一次行为（pv / fav / cart / buy 任意一种）的用户；日活跃（DAU）= 当天 `date_only` 的去重用户数。\n\n| 日期 | DAU |\n|---|---|\n| 2017-11-25 | 4,205 |\n| 2017-11-26 | 4,278 |\n| 2017-11-27 | 4,245 |\n| 2017-11-28 | 4,211 |\n| 2017-11-29 | 4,305 |\n| 2017-11-30 | 4,377 |\n| 2017-12-01 | 4,416 |\n| 2017-12-02 | **5,578** |\n| 2017-12-03 | 5,450 |\n\n**关键结论**：\n\n1. **整体呈上升趋势**：从 11-25 的 4,205 增长到 12-03 的 5,450，区间内增长约 **29.6%**。\n2. **前 7 天平稳**：11-25 至 12-01 期间 DAU 稳定在 4,200–4,420 之间，波动幅度很小（最低 4,205，最高 4,416）。\n3. **12-02 出现明显跳升**：DAU 从前一天的 4,416 骤增至 5,578，单日环比 **+26.3%**，是区间内的峰值；12-03 小幅回落至 5,450，但仍显著高于此前水平。\n4. **12 月初的跃升值得关注**：12-02、12-03 两天比 11 月均值（约 4,270）高出约 1,200–1,300 人，建议结合这两天的运营活动、促销或流量投放情况排查原因。\n\n如果需要进一步定位这次跃升的来源（比如是新用户涌入还是老用户回流、由哪类行为带动），可以再按用户维度或行为类型拆解。"
+    },
+    {
+      "id": "Q04",
+      "question": "浏览到购买的转化率是多少（数据时间范围 2017-11-25 至 2017-12-03，请只查这个区间）",
+      "expect_refusal": false,
+      "sql": "SELECT COUNT(DISTINCT CASE WHEN behavior_type='pv' THEN user_id END) AS pv_users, COUNT(DISTINCT CASE WHEN behavior_type='buy' THEN user_id END) AS buy_users FROM user_behavior WHERE date_only BETWEEN '2017-11-25' AND '2017-12-03'",
+      "rows": null,
+      "executed": true,
+      "hit": true,
+      "refused": false,
+      "retries": 0,
+      "elapsed": 3.51,
+      "tokens": 4054,
+      "note": "",
+      "tools": [
+        "query_schema",
+        "search_docs",
+        "run_sql"
+      ],
+      "steps": 3,
+      "tools_ok": true,
+      "answer": "## 结论\n\n**2017-11-25 至 2017-12-03 期间，浏览到购买的转化率约为 69.1%（按人数口径）。**\n\n### 计算明细\n\n| 指标 | 数值 |\n|---|---|\n| 有浏览行为（pv）的去重用户数 | 5,814 |\n| 有购买行为（buy）的去重用户数 | 4,016 |\n| 转化率 | 4,016 ÷ 5,814 ≈ **69.08%** |\n\n### 口径说明\n\n依据运营口径文档，转化率默认**按用户去重**计算：\n\n> 转化率 = 完成目标行为的去重用户数 / 完成起始行为的去重用户数 × 100%\n\n即\"浏览到购买的转化率\" = 有购买行为的用户数 / 有浏览行为的用户数。\n\n⚠️ 需要注意：这里用的是**按人数**口径。如果按行为次数算（购买次数 ÷ 浏览次数），结果会低很多，两个口径不能混用。本回答已明确标注为按人数口径。\n\n另外提醒一点：该区间内购买用户数（4,016）占浏览用户数（5,814）的比例偏高，接近七成，这通常说明该数据集只覆盖了\"有较完整行为链路\"的用户样本，而非全站流量，解读时建议结合数据抽样背景一并说明。"
+    },
+    {
+      "id": "Q05",
+      "question": "哪些商品被加购但从来没被购买过（数据时间范围 2017-11-25 至 2017-12-03，请只查这个区间）",
+      "expect_refusal": false,
+      "sql": "SELECT MIN(date_only) AS min_date, MAX(date_only) AS max_date FROM user_behavior",
+      "rows": null,
+      "executed": true,
+      "hit": true,
+      "refused": false,
+      "retries": 0,
+      "elapsed": 4.16,
+      "tokens": 3921,
+      "note": "",
+      "tools": [
+        "query_schema",
+        "query_column_values",
+        "run_sql"
+      ],
+      "steps": 3,
+      "tools_ok": true,
+      "answer": "根据已确认的信息，我可以给出查询思路，但由于工具调用次数已用完，**无法实际执行查询拿到最终商品清单**。\n\n## 已确认的信息\n\n- 表 `user_behavior` 中 `behavior_type` 的取值为：`pv / fav / buy / cart`（加购 = `cart`，购买 = `buy`）\n- 数据日期范围：2017-09-11 至 2017-12-03，你要求的 2017-11-25 至 2017-12-03 区间在数据覆盖范围内\n- 日期字段可用 `date_only`（date 类型）\n\n## 应执行的查询逻辑\n\n\"被加购但从未被购买\"= 在指定区间内，某 `item_id` 出现过 `cart` 行为，但**从未**出现过 `buy` 行为。对应 SQL 应为：\n\n```sql\nSELECT DISTINCT item_id\nFROM user_behavior\nWHERE date_only BETWEEN '2017-11-25' AND '2017-12-03'\n  AND behavior_type = 'cart'\n  AND item_id NOT IN (\n      SELECT item_id\n      FROM user_behavior\n      WHERE date_only BETWEEN '2017-11-25' AND '2017-12-03'\n        AND behavior_type = 'buy'\n  )\n```\n\n## 说明与提醒\n\n1. **口径确认**：这里\"从未被购买\"我按**同一时间区间内**从未出现 `buy` 来理解。如果你指的是\"全历史从未被购买\"，则子查询里的日期条件需要去掉——两种口径结果会不同，建议先明确。\n2. **结果未取到**：由于工具调用次数已用完，我无法返回具体的商品 ID 列表和数量。请重新发起一次提问（或允许我继续调用工具），我就能跑出实际结果。\n\n如果你确认口径（区间内 vs 全历史），我可以直接给出最终清单。"
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "exec_ok": 5,
+    "hit_ok": 5,
+    "refused_ok": 0,
+    "tools_ok": 5,
+    "avg_steps": 2.8,
+    "avg_elapsed": 4.08,
+    "total_tokens": 19944
+  }
+}

@@ -218,6 +218,21 @@
   button.send:not(:disabled):hover{background:var(--accent-2);}
   .hint{max-width:900px;margin:8px auto 0;font-size:11px;color:var(--text-3);text-align:center;}
 
+  /* ---------- Agent 执行过程 ---------- */
+  .agent-steps{display:flex;flex-direction:column;gap:8px;}
+  .agent-step{border-left:2px solid var(--accent-soft);padding-left:10px;}
+  .agent-step .line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;}
+  .agent-step .idx{color:var(--text-3);font-size:11px;font-variant-numeric:tabular-nums;}
+  .agent-step .tool{
+    background:var(--accent-soft);color:var(--accent);
+    font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:5px;
+  }
+  .agent-step .args{
+    color:var(--text-3);font-family:Consolas,monospace;font-size:11px;
+    max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .agent-step .ret{color:var(--text-2);font-size:11.5px;line-height:1.6;margin-top:2px;}
+
   /* ---------- 弹层 ---------- */
   .modal{
     position:fixed;inset:0;background:rgba(26,32,44,.45);display:none;
@@ -257,6 +272,7 @@
   </div>
   <div class="spacer"></div>
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">连接中…</span></div>
+  <button class="ghost-btn" id="modeBtn" title="切换问数模式：流水线 / Agent">模式：流水线</button>
   <a class="ghost-btn nav-btn" href="/console">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -343,6 +359,20 @@ const welcomeEl = document.getElementById('welcome');
 
 let history = [];
 let busy = false;
+let agentMode = false;   // false = 流水线模式，true = Agent 模式
+
+/* ---------------- 模式切换（只影响提交时请求哪个接口） ---------------- */
+const modeBtn = document.getElementById('modeBtn');
+function renderModeBtn() {
+  modeBtn.textContent = agentMode ? '模式：Agent' : '模式：流水线';
+  modeBtn.style.borderColor = agentMode ? 'var(--accent-2)' : '';
+  modeBtn.style.color = agentMode ? 'var(--accent)' : '';
+  inputEl.placeholder = agentMode
+    ? '试试问口径类问题：复购率是怎么算的？'
+    : '例如：帮我找出购买次数前十的用户，并给出运营策略';
+}
+modeBtn.onclick = () => { agentMode = !agentMode; renderModeBtn(); };
+renderModeBtn();
 
 /* ---------------- 初始化：渲染示例问题分组 ---------------- */
 const groupsEl = document.getElementById('groups');
@@ -465,30 +495,14 @@ async function submit() {
   scrollDown();
 
   try {
-    const res = await fetch(API_BASE + '/api/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: q, history })
-    });
-    if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
-
-    const reader = res.body.getReader();
-    const dec = new TextDecoder();
-    let buf = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      const parts = buf.split('\n\n');
-      buf = parts.pop();
-      for (const p of parts) {
-        const ev = parseEvent(p);
-        if (ev) handle(ev.name, ev.data, ui);
-      }
+    if (agentMode) {
+      await runAgentStream(q, ui);
+    } else {
+      await runPipelineStream(q, ui);
+      history.push({ question: q, sql: ui.sql || '', result_summary: ui.digest || '' });
+      if (history.length > 6) history = history.slice(-6);
+      chat.apiHistory = history;
     }
-    history.push({ question: q, sql: ui.sql || '', result_summary: ui.digest || '' });
-    if (history.length > 6) history = history.slice(-6);
-    chat.apiHistory = history;
     saveChat();
   } catch (err) {
     ui.add({ type: 'error', text: '请求失败：' + err.message });
@@ -498,6 +512,46 @@ async function submit() {
     inputEl.focus();
     scrollDown();
   }
+}
+
+/* 读一次 SSE 流，把每个事件交给 handle() 处理 */
+async function readSSE(res, ui) {
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const parts = buf.split('\n\n');
+    buf = parts.pop();
+    for (const p of parts) {
+      const ev = parseEvent(p);
+      if (ev) handle(ev.name, ev.data, ui);
+    }
+  }
+}
+
+/* 流水线模式：固定链路（生成 SQL → 校验 → 执行 → 洞察） */
+async function runPipelineStream(q, ui) {
+  const res = await fetch(API_BASE + '/api/ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question: q, history })
+  });
+  if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
+  await readSSE(res, ui);
+}
+
+/* Agent 模式：模型自己决定调哪个工具、调几步，页面实时显示执行过程 */
+async function runAgentStream(q, ui) {
+  const res = await fetch(API_BASE + '/api/agent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question: q, max_steps: 3 })
+  });
+  if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
+  await readSSE(res, ui);
 }
 
 function parseEvent(chunk) {
@@ -558,11 +612,59 @@ function addBotShell() {
     s.innerHTML = (cls === 'active' ? '<span class="sp"></span>' : '') + escapeHtml(text);
   }
 
+  /* ---------------- Agent 模式：执行过程卡片（随步骤实时刷新） ---------------- */
+  const AGENT_TOOL_LABEL = {
+    query_schema: '查看表结构',
+    query_column_values: '查看字段取值',
+    run_sql: '执行 SQL 查询',
+    search_docs: '检索口径文档',
+    fallback_run_sql: '兜底执行 SQL'
+  };
+  let agentCard = null;
+  const agentSteps = [];
+
+  function renderAgentCard(stepsCount) {
+    if (!agentCard) {
+      agentCard = document.createElement('div');
+      agentCard.className = 'card';
+      agentCard.innerHTML = '<div class="card-head"><span class="tag">执行过程</span>' +
+        '<span id="agentHint">Agent 正在思考…</span></div><div class="card-body"><div class="agent-steps"></div></div>';
+      bubble.appendChild(agentCard);
+    }
+    if (stepsCount != null) {
+      const hint = agentCard.querySelector('#agentHint');
+      if (hint) hint.textContent = `共 ${stepsCount} 步 · 模型自己决定调哪个工具`;
+    }
+    const box = agentCard.querySelector('.agent-steps');
+    if (!box) return;
+    box.innerHTML = '';
+    agentSteps.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'agent-step';
+      const args = Object.values(s.args || {}).join(' ').replace(/\n/g, ' ');
+      div.innerHTML = `<div class="line"><span class="idx">第 ${s.step} 步</span>` +
+        `<span class="tool">${escapeHtml(AGENT_TOOL_LABEL[s.tool] || s.tool)}</span>` +
+        `<span class="args">${escapeHtml(args.slice(0, 90))}</span></div>` +
+        `<div class="ret">${escapeHtml((s.summary || '').slice(0, 150))}</div>`;
+      box.appendChild(div);
+    });
+  }
+
   return {
     get sql() { return state.sql; },
     get digest() { return state.digest; },
+    get agentSteps() { return agentSteps; },
     add(block) {
       if (block.type === 'stage') { markStep(block.stage, block.text, 'active'); }
+      else if (block.type === 'tool') {
+        agentSteps.push(block);
+        renderAgentCard();
+        scrollDown();
+      }
+      else if (block.type === 'answer') {
+        renderAgentCard(block.steps);
+        bubble.appendChild(insightCard(block.text, 'Agent 回答'));
+      }
       else if (block.type === 'sql') {
         state.sql = block.sql;
         if (block.blocked) {
@@ -727,10 +829,10 @@ function resultCard(block) {
   return c;
 }
 
-function insightCard(text) {
+function insightCard(text, title) {
   const c = document.createElement('div');
   c.className = 'card';
-  c.innerHTML = `<div class="card-head"><span class="tag">业务洞察</span>AI 生成</div>
+  c.innerHTML = `<div class="card-head"><span class="tag">${escapeHtml(title || '业务洞察')}</span>AI 生成</div>
     <div class="insight">${renderMd(text)}</div>`;
   return c;
 }
@@ -814,10 +916,14 @@ function restoreChat(data) {
     if (it.role === 'user') { addUser(it.text || ''); continue; }
     const ui = addBotShell();
     if (it.sql) ui.add({ type: 'sql', sql: it.sql });
+    if (it.agentSteps && it.agentSteps.length) {
+      it.agentSteps.forEach(s => ui.add({ type: 'tool', ...s }));
+    }
     if (it.result) {
       ui.add({ type: 'result', ...it.result, sql: it.sql || '',
                question: (it.result && it.result.question) || '' });
     }
+    if (it.answer) ui.add({ type: 'answer', text: it.answer, steps: (it.agentSteps || []).length });
     if (it.insight) ui.add({ type: 'insight', text: it.insight });
     if (it.refusal) ui.add({ type: 'refusal', reason: it.refusal });
     if (it.error) ui.add({ type: 'error', text: it.error });
@@ -865,6 +971,18 @@ function handle(name, data, ui) {
   else if (name === 'insight') {
     chat.messages.push({ role: 'bot', insight: data.text });
     ui.add({ type: 'insight', text: data.text });
+  }
+  else if (name === 'tool') {
+    // Agent 模式：一步工具调用，记进本地历史，刷新后还能看到执行过程
+    const last = chat.messages[chat.messages.length - 1];
+    const item = { step: data.step, tool: data.tool, args: data.args || {}, summary: data.summary };
+    if (last && last.role === 'bot' && last.agentSteps) last.agentSteps.push(item);
+    else chat.messages.push({ role: 'bot', agentSteps: [item] });
+    ui.add({ type: 'tool', ...item });
+  }
+  else if (name === 'answer') {
+    chat.messages.push({ role: 'bot', answer: data.text });
+    ui.add({ type: 'answer', text: data.text, steps: data.steps });
   }
   else if (name === 'refusal') {
     chat.messages.push({ role: 'bot', refusal: data.reason });
