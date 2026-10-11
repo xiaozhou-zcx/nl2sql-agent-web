@@ -1,0 +1,18 @@
+# 构建镜像时不需要打进容器的东西
+.git
+.gitignore
+.gitattributes
+.env
+logs/
+*.log
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+images/
+docs/*.png
+feedback.jsonl
+user_tags.jsonl
+简历*/
+*.tmp.docx

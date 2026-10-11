@@ -158,64 +158,217 @@ def run_sql(sql: str) -> str:
 
 
 # ---------------------------------------------------------------- 工具 4
+# 检索相关配置：切块、同义词、停用词、打分权重
 
-def load_docs() -> list[dict]:
-    """把口径文档按 ## 小节读成列表：每个元素是 {"title": 小标题, "text": 正文}。
+# 打分权重（写出来是为了能解释、能调）：标题命中比正文重要，短语完整命中再加分
+W_TITLE = 5      # 关键词出现在小节标题里
+W_BODY = 3       # 关键词出现在小节正文里
+W_PHRASE = 2     # 整个问句短语连续出现（说明这段就是讲这个的）
 
-    用最朴素的方式切分（按行扫描），不引任何依赖。
+# 最低分：低于这个分数认为是"误命中"。
+# 目的：挡住那种"正文里偶然提到一个词"的弱匹配 ——
+# 实测里"订单的实付金额怎么算"就是靠正文里一个"金额"蹭到了【高价值用户分层口径】的分。
+MIN_SCORE = 5
+
+# 停用词：这些词表示"用户在问定义"，但不该参与打分
+# （如果不排除，"复购率是怎么算的"里的"怎么""算"会到处命中，把结果搅乱）
+STOPWORDS = {
+    "怎么", "如何", "什么", "啥", "多少", "哪些", "哪个", "为什么", "是否",
+    "的", "是", "了", "吗", "呢", "和", "与", "及", "或", "算", "统计",
+    "口径", "定义", "规则", "标准", "含义", "意思", "区别", "代表",
+    "请问", "帮我", "一下", "告诉", "我", "你", "它",
+}
+
+# 同义词表：左 = 用户可能这么说，右 = 文档里可能怎么写。
+# 检索时双向扩展（用户说 A 也去找 B，文档写 B 也能被 A 命中）。
+# 这张表就是"关键词检索"和"语义检索"之间最便宜的补丁。
+SYNONYMS: dict[str, list[str]] = {
+    "复购": ["复购率", "重复购买", "回购", "复购用户"],
+    "重复购买": ["复购", "回购"],
+    "回购": ["复购", "重复购买"],
+    "回头客": ["复购", "重复购买"],
+    "活跃用户": ["日活", "DAU", "活跃"],
+    "日活": ["活跃用户", "DAU"],
+    "dau": ["活跃用户", "日活"],
+    "转化率": ["转化"],
+    "转化": ["转化率"],
+    "加购": ["加入购物车", "购物车", "cart"],
+    "购物车": ["加购", "cart"],
+    "收藏": ["fav", "收藏夹"],
+    "浏览": ["pv", "浏览量"],
+    "高价值": ["核心", "成长", "分层", "会员等级"],
+    "会员等级": ["分层", "高价值"],
+    "分层": ["高价值", "会员等级", "核心", "成长"],
+    "行为类型": ["pv", "fav", "cart", "buy"],
+    "退款": ["退货", "售后"],
+    "客单价": ["金额", "价格"],
+}
+
+
+def expand_words(words: list[str]) -> set[str]:
+    """把用户输入拆成词并做同义词扩展，返回用于匹配的词集合。
+
+    同时做一遍大小写归一，因为 DAU / dau、PV / pv 在文档里两种写法都有。
     """
+    result: set[str] = set()
+    for w in words:
+        w = w.strip().lower()
+        if not w or w in STOPWORDS or len(w) < 2:
+            continue
+        result.add(w)
+        for extra in SYNONYMS.get(w, []):
+            result.add(extra.lower())
+    return result
+
+
+def drop_common_words(words: set[str], sections: list[dict],
+                      ratio: float = 0.6) -> set[str]:
+    """丢掉"没有区分度"的词。
+
+    朴素版 IDF：一个词如果在一大半小节里都出现（比如"用户""行为""数据"），
+    那它对判断"该看哪一节"没有帮助，只会让所有小节都得同样的分。
+    实测里"用户的手机号""订单的实付金额"就是因为这类词误命中了别的标题/正文。
+
+    只对单个词做过滤；同义词扩展出来的词同样受这个规则约束。
+    """
+    if not sections:
+        return words
+    threshold = max(1, int(len(sections) * ratio))
+    kept = set()
+    for w in words:
+        appear = sum(1 for s in sections
+                     if w in (s["doc"] + "\n" + s["title"] + "\n" + s["text"]).lower())
+        if appear <= threshold:
+            kept.add(w)
+    return kept
+
+
+def load_docs(path: str | None = None) -> list[dict]:
+    """把口径文档按 ## 小节读成列表。
+
+    每个元素：{"doc": 文档大标题, "title": 小节标题, "text": 正文}
+    多留一个 doc 字段是为了检索时能把"所属文档"也算进匹配范围 ——
+    有的问题问的是文档主题，而不是小节标题。
+    """
+    path = path or DOCS_FILE
     sections: list[dict] = []
-    title, lines = "", []
+    doc_title, title, lines = "", "", []
     try:
-        with open(DOCS_FILE, encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
     except OSError as exc:
         log.warning("读取口径文档失败 | %s: %s", type(exc).__name__, exc)
         return []
 
     for line in content.splitlines():
-        if line.startswith("## "):
+        if line.startswith("# ") and not line.startswith("## "):
+            doc_title = line[2:].strip()
+        elif line.startswith("## "):
             if title:
-                sections.append({"title": title, "text": "\n".join(lines).strip()})
+                sections.append({"doc": doc_title, "title": title,
+                                 "text": "\n".join(lines).strip()})
             title, lines = line[3:].strip(), []
         elif title:
             lines.append(line)
     if title:
-        sections.append({"title": title, "text": "\n".join(lines).strip()})
+        sections.append({"doc": doc_title, "title": title,
+                         "text": "\n".join(lines).strip()})
     return sections
 
 
-def search_docs(keyword: str, limit: int = DOCS_TOP_N) -> str:
-    """工具 4：按关键词检索运营口径文档。
+def split_question(keyword: str) -> list[str]:
+    """把一句问题拆成候选词。
 
-    做法很朴素：看每个小节里关键词出现了几次，出现多的排前面。
-    够用就好 —— 口径文档只有几篇，不需要上向量检索。
+    中文没有空格，所以这里用最朴素的做法：先按标点和空格切，
+    再把切出来的长片段按 2-4 字滑窗切开 —— 这样"重复购买的人多不多"
+    能切出"重复购买""购买""人多"等片段，其中"重复购买"就是同义词表的键。
+    """
+    pieces: list[str] = []
+    for chunk in re.split(r"[\s、,，。？?！!:/|()（）\[\]【】\"'']+", keyword):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        pieces.append(chunk)
+        if len(chunk) > 4:                      # 长片段再滑窗切细一点
+            for size in (4, 3, 2):
+                for i in range(len(chunk) - size + 1):
+                    pieces.append(chunk[i:i + size])
+    return pieces
+
+
+def _phrase_of(keyword: str) -> str:
+    """去掉标点和停用词后的"核心短语"，用于判断整句是否连续出现。"""
+    text = re.sub(r"[\s、,，。？?！!:/|()（）\[\]【】]+", "", keyword or "")
+    for w in sorted(STOPWORDS, key=len, reverse=True):
+        text = text.replace(w, "")
+    return text.strip().lower()
+
+
+def search_sections(keyword: str, limit: int = DOCS_TOP_N,
+                    path: str | None = None) -> list[dict]:
+    """检索口径小节，返回按相关度排序的列表（带分数，方便评测和调参）。
+
+    打分规则（可解释）：
+      关键词出现在小节标题里   +5 分/个
+      关键词出现在小节正文里   +3 分/个
+      整句核心短语连续出现     +2 分
+    同义词扩展后一起参与匹配，所以"重复购买"也能命中"复购率口径"。
+    """
+    keyword = (keyword or "").strip()
+    if not keyword:
+        return []
+
+    sections = load_docs(path)
+    if not sections:
+        return []
+
+    words = expand_words(split_question(keyword))
+    words = drop_common_words(words, sections)
+    phrase = _phrase_of(keyword)
+    if not words and not phrase:
+        return []
+
+    scored: list[dict] = []
+    for i, sec in enumerate(sections):
+        title = sec["title"].lower()
+        body = (sec["doc"] + "\n" + sec["text"]).lower()
+        full = sec["title"].lower() + "\n" + body
+
+        score = 0
+        for w in words:
+            if w in title:
+                score += W_TITLE
+            elif w in full:
+                score += W_BODY
+        if phrase and len(phrase) >= 2 and phrase in full.replace(" ", ""):
+            score += W_PHRASE
+        if score >= MIN_SCORE:
+            scored.append({**sec, "score": score, "_order": i})
+
+    scored.sort(key=lambda x: (-x["score"], x["_order"]))
+    return scored[: max(1, min(int(limit or DOCS_TOP_N), 5))]
+
+
+def search_docs(keyword: str, limit: int = DOCS_TOP_N, path: str | None = None) -> str:
+    """工具 4：按关键词检索运营口径文档（给模型看的文本形式）。
+
+    做法：同义词扩展 + 标题/正文加权打分 + 停用词过滤，
+    返回最相关的前几节。规模小，不上向量检索 —— 理由写在 README 的「检索评测」里。
     """
     keyword = (keyword or "").strip()
     if not keyword:
         return "参数不合法：keyword 不能为空"
 
-    sections = load_docs()
+    sections = load_docs(path)
     if not sections:
         return "口径文档读取失败（详情见后端日志）"
 
-    # 按空格 / 顿号拆成多个词，任意一个命中就算相关
-    words = [w for w in re.split(r"[\s、,，/]+", keyword) if w]
-    scored = []
-    for i, sec in enumerate(sections):
-        body = sec["title"] + "\n" + sec["text"]
-        hits = sum(body.count(w) for w in words)
-        if hits:
-            scored.append((hits, i, sec))
-
-    if not scored:
+    hits = search_sections(keyword, limit, path)
+    if not hits:
         titles = "、".join(s["title"] for s in sections)
         return f"文档里没有找到和「{keyword}」相关的内容。现有口径章节：{titles}"
 
-    scored.sort(key=lambda x: (-x[0], x[1]))
-    parts = []
-    for _, _, sec in scored[: max(1, min(int(limit or DOCS_TOP_N), 5))]:
-        parts.append(f"【{sec['title']}】\n{sec['text']}")
+    parts = [f"【{s['title']}】\n{s['text']}" for s in hits]
     return _cut("\n\n".join(parts))
 
 

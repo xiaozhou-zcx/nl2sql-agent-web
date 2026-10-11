@@ -1,0 +1,53 @@
+# 一条命令把整套服务跑起来：MySQL（自动建表导数据）+ 应用
+#
+# 用法：
+#   1. copy .env.example .env        # 填 DEEPSEEK_API_KEY
+#   2. docker compose up -d
+#   3. 浏览器打开 http://127.0.0.1:8000
+#
+# 说明：容器里的应用要通过服务名连数据库，所以这里把 DB_HOST 覆盖成 mysql，
+# 不用改 .env（.env 里的 localhost 是给本机直接跑 python app.py 用的）。
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: nl2sql-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: nl2sql_root_pwd
+      MYSQL_DATABASE: taobao_analysis
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      # 首次启动会自动执行这个目录下的 .sql —— 建表 + 导入 4,784 行样例数据
+      - ./sql/00_init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pnl2sql_root_pwd"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  app:
+    build: .
+    container_name: nl2sql-app
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DB_HOST: mysql          # 容器内用服务名连数据库
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: nl2sql_root_pwd
+      DB_NAME: taobao_analysis
+    ports:
+      - "8000:8000"
+
+volumes:
+  mysql-data:

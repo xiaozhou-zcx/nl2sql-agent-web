@@ -1,0 +1,31 @@
+{
+  "_说明": [
+    "检索评测集：用来衡量 search_docs 能不能把问题路由到正确的口径小节。",
+    "expect          : 期望命中的小节标题（必须和 docs/口径文档-示例.md 里的 ## 标题完全一致）；",
+    "                  超纲题写 null，表示正确行为是『检索不到』。",
+    "kind            : exact=文档里也这么说 / definition=问定义 / rephrase=换种说法（考同义词）/ beyond=超纲",
+    "hit@2 表示期望小节出现在返回的前 2 节里；top1 表示排在第一位。"
+  ],
+  "cases": [
+    { "id": "R01", "question": "复购率", "expect": "复购率口径", "kind": "exact" },
+    { "id": "R02", "question": "转化率", "expect": "转化率口径", "kind": "exact" },
+    { "id": "R03", "question": "活跃用户", "expect": "活跃用户口径", "kind": "exact" },
+    { "id": "R04", "question": "高价值用户分层", "expect": "高价值用户分层口径", "kind": "exact" },
+    { "id": "R05", "question": "加购未购买", "expect": "加购未购买口径", "kind": "exact" },
+    { "id": "R06", "question": "行为类型", "expect": "行为类型口径", "kind": "exact" },
+    { "id": "R07", "question": "复购率是怎么算的", "expect": "复购率口径", "kind": "definition" },
+    { "id": "R08", "question": "活跃用户的定义是什么", "expect": "活跃用户口径", "kind": "definition" },
+    { "id": "R09", "question": "高价值用户的分层标准", "expect": "高价值用户分层口径", "kind": "definition" },
+    { "id": "R10", "question": "转化率的计算规则", "expect": "转化率口径", "kind": "definition" },
+    { "id": "R11", "question": "重复购买的人多不多", "expect": "复购率口径", "kind": "rephrase" },
+    { "id": "R12", "question": "回头客比例", "expect": "复购率口径", "kind": "rephrase" },
+    { "id": "R13", "question": "日活怎么统计", "expect": "活跃用户口径", "kind": "rephrase" },
+    { "id": "R14", "question": "DAU 的口径", "expect": "活跃用户口径", "kind": "rephrase" },
+    { "id": "R15", "question": "哪些商品被放进购物车却没下单", "expect": "加购未购买口径", "kind": "rephrase" },
+    { "id": "R16", "question": "会员等级怎么划分", "expect": "高价值用户分层口径", "kind": "rephrase" },
+    { "id": "R17", "question": "pv 和 buy 分别代表什么", "expect": "行为类型口径", "kind": "rephrase" },
+    { "id": "R18", "question": "订单的实付金额怎么算", "expect": null, "kind": "beyond" },
+    { "id": "R19", "question": "用户的手机号", "expect": null, "kind": "beyond" },
+    { "id": "R20", "question": "退货率是多少", "expect": null, "kind": "beyond" }
+  ]
+}
