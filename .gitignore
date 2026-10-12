@@ -16,9 +16,11 @@ __pycache__/
 *.pyc
 .venv/
 
-# 本地工具产生的临时目录与文件（截图用的浏览器 profile、探针脚本等）
+# 本地工具产生的临时目录与文件（截图/渲染用的中间产物、探针脚本等）
 .edge-profile/
 .probe*.html
+.iter_*.html
+.preview*.html
 *.tmp
 
 # 数据文件
